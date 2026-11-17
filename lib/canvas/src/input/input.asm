@@ -103,6 +103,9 @@ extern pointer_settings
 extern pointer_button
 extern clamshell_sleep
 extern switcher_cancel
+extern menu_key
+extern power_menu_open
+extern launcher_open
 extern switcher_finish
 extern switcher_next
 extern switcher_selected
@@ -154,6 +157,9 @@ extern window_move
 %define KEY_TAB         15
 %define KEY_ESC         1
 %define KEY_DOWN        108
+%define KEY_DELETE      111
+%define KEY_SPACE       57
+%define KEY_POWER       116
 
 %define EVENT_SHORT     12              ; time, surface
 %define EVENT_LONG      20              ; time, surface, a, b
@@ -689,6 +695,7 @@ key_event:
     je .route
     mov rdi, rbx
     mov esi, [r12 + RawInput.code]
+    mov edx, r13d                       ; the character, for a menu
     call shortcut
     test eax, eax
     jz .route
@@ -1892,12 +1899,21 @@ button_event:
 .out:
     EPILOGUE_RESTORE rbx, r12
 
-; The server's keys: Super+1 to 4 and, for the window with the keyboard,
-; Super+Shift+1 to 4, Alt+F4, Super+Up, Super+Down.
-; rdi = seat, esi = the keycode pressed -> eax = 1 if it was one
+; The server's keys: every key while a menu is open; Ctrl+Alt+Delete and the
+; power key (the power menu), Super+Space (the launcher), Super+1 to 4 and,
+; for the window with the keyboard, Super+Shift+1 to 4, Alt+F4, Super+Up,
+; Super+Down.
+; rdi = seat, esi = the keycode pressed, edx = the character it types
+; -> eax = 1 if it was one
 shortcut:
     PROLOGUE_SAVE rbx, r12
     mov rbx, rdi
+    mov r12d, esi
+    mov rdi, [rbx + InputSeat.server]   ; a menu open takes every key
+    call menu_key
+    test eax, eax
+    jnz .yes
+    mov esi, r12d
     mov rax, [rbx + InputSeat.server]
     mov edx, [rbx + InputSeat.mods]     ; Super+Shift+H: high contrast, on
     and edx, MOD_SUPER | MOD_SHIFT | MOD_CTRL | MOD_ALT  ; the login screen
@@ -1932,6 +1948,19 @@ shortcut:
     mov rax, [rbx + InputSeat.server]
     cmp qword [rax + Server.locked], 0
     jne .no                             ; the login screen's keys are its own
+    cmp esi, KEY_POWER                  ; the power menu
+    je .power_menu
+    mov edx, [rbx + InputSeat.mods]
+    and edx, MOD_CTRL | MOD_ALT
+    cmp edx, MOD_CTRL | MOD_ALT
+    jne .no_power
+    cmp esi, KEY_DELETE
+    jne .no_power
+.power_menu:
+    mov rdi, rax
+    call power_menu_open
+    jmp .yes
+.no_power:
     mov edx, [rbx + InputSeat.mods]
     test edx, MOD_ALT
     jz .super_keys
@@ -1953,6 +1982,12 @@ shortcut:
     mov edx, [rbx + InputSeat.mods]
     test edx, MOD_SUPER
     jz .window_keys
+    cmp esi, KEY_SPACE
+    jne .lock_key
+    mov rdi, rax
+    call launcher_open
+    jmp .yes
+.lock_key:
     cmp esi, KEY_L
     jne .workspace_keys
     mov rdi, [rax + Server.greeter]
