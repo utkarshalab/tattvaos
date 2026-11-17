@@ -1460,6 +1460,7 @@ endstruc
 %define POINTER_DEVICES     8           ; devices with settings of their own
 %define POINTER_NATURAL     1           ; scrolling reversed
 %define POINTER_LEFT_HANDED 2           ; left and right buttons swapped
+%define POINTER_MIDDLE_EMU  4           ; left and right together: middle
 
 %define APPS_MAX            32          ; apps the launcher lists
 %define APP_NAME_MAX        31          ; bytes of an app's name
@@ -1628,7 +1629,7 @@ endstruc
 struc TouchContact
     .surface:                 resq 1
     .key:                     resd 1    ; device << 8 | slot
-    resb 4
+    .emulated:                resd 1    ; 1: it drives the pointer (TCH-04)
 endstruc
 %if TouchContact_size * TOUCH_SLOTS != 160
     %error "InputSeat.touches must follow TouchContact and TOUCH_SLOTS"
@@ -1678,6 +1679,13 @@ struc InputSeat
     .switch_pad:              resd 1
     .last_input:              resq 1    ; when a key or button was last pressed
     .scroll_rest:             resd 2    ; 120ths of a step not yet sent, per axis
+    .middle_pending:          resd 1    ; a left (1) or right (2) press held
+                                        ; back for a middle click; 0 none
+    .middle_device:           resd 1    ; its device
+    .middle_since:            resq 1    ; its time
+    .middle_active:           resd 1    ; 1: an emulated middle is down; 2:
+                                        ; let go, one release still to drop
+    resd 1
     .tp_slot:                 resd 5    ; TOUCHPAD_FINGERS: a touchpad's
     .tp_x:                    resd 5    ; slots + 1 (0 free) and places, in
     .tp_y:                    resd 5    ; the layout (input/gestures)
@@ -1776,7 +1784,7 @@ struc Surface
     .buffer_scale:            resd 1    ; its buffer's scale in 120ths, 0: 120
     .pointer_relative:        resd 1    ; 1: raw motion while the pointer is over it
     .secure_input:            resd 1    ; 1: a password field, the keyboard kept
-    resb 4
+    .idle_inhibit:            resd 1    ; 1: while shown, no idle lock
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
