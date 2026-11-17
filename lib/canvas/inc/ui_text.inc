@@ -25,4 +25,15 @@ struc UiText
     .pad:           resd 1
 endstruc
 
+; What ui_text_draw_styled adds (TXT-18): lines through the text, and a
+; selection painted behind it (byte offsets into the text; equal: none)
+struc UiTextStyle
+    .decor:         resd 1      ; UI_UNDERLINE | UI_LINE_THROUGH
+    .sel_start:     resd 1
+    .sel_end:       resd 1
+    .sel_colour:    resd 1      ; 0xRRGGBB
+endstruc
+%define UI_UNDERLINE        1
+%define UI_LINE_THROUGH     2
+
 %endif
