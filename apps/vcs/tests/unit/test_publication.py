@@ -14,7 +14,9 @@ class PublishObject(ctypes.Structure):
     _fields_ = [("object_id", ctypes.c_ubyte * 32),
                 ("object_type", ctypes.c_uint32), ("flags", ctypes.c_uint32),
                 ("payload", P), ("length", ctypes.c_uint64),
-                ("envelope", ctypes.c_uint64), ("envelope_header", P)]
+                ("envelope", ctypes.c_uint64), ("envelope_header", P),
+                ("extents", P), ("locators", ctypes.POINTER(ctypes.c_uint64)),
+                ("extent_count", ctypes.c_uint64)]
 
 
 class Edge(ctypes.Structure):
@@ -75,7 +77,7 @@ def oid(kind, payload):
 
 
 object_specs = [(1, b"first immutable payload"),
-                (2, b"second canonical object")]
+                (2, bytes((index * 73) & 0xff for index in range(5000)))]
 object_specs.sort(key=lambda value: oid(value[0], value[1]))
 payload_buffers = [array(payload) for _, payload in object_specs]
 objects = (PublishObject * 2)()
@@ -86,15 +88,38 @@ for index, (kind, payload) in enumerate(object_specs):
     objects[index].length = len(payload)
     objects[index].envelope = 100 + index
 
-envelope_buffers = []
+envelope_buffers, extent_buffers, locator_buffers = [], [], []
 for index, value in enumerate(objects):
+    extent_count = (value.length + 4031) // 4032
+    locators = (ctypes.c_uint64 * extent_count)(
+        *[1000 + index * 16 + extent for extent in range(extent_count)])
+    extents = bytearray(extent_count * 4096)
+    payload = bytes(payload_buffers[index])
+    offset = 0
+    for extent_index in range(extent_count):
+        block = extent_index * 4096
+        size = min(4032, value.length - offset)
+        extents[block:block + 8] = b"UVCSEXT1"
+        struct.pack_into("<HHI", extents, block + 8, 1,
+                         extent_index == extent_count - 1, size)
+        extents[block + 16:block + 48] = bytes(value.object_id)
+        next_locator = 0 if extent_index == extent_count - 1 else locators[extent_index + 1]
+        struct.pack_into("<QQ", extents, block + 48, extent_index, next_locator)
+        extents[block + 64:block + 64 + size] = payload[offset:offset + size]
+        offset += size
+    extent_buffer = array(extents)
+    extent_buffers.append(extent_buffer)
+    locator_buffers.append(locators)
+    value.extents = extent_buffer
+    value.locators = locators
+    value.extent_count = extent_count
     envelope = bytearray(128)
     envelope[:8] = b"UVCSOBJ3"
     struct.pack_into("<HHHHIIQQ", envelope, 8, 1, 128,
                      value.object_type, 1, 0, 0, value.length,
-                     (value.length + 4031) // 4032)
+                     extent_count)
     envelope[40:72] = bytes(value.object_id)
-    struct.pack_into("<QQ", envelope, 72, 1000 + index, 11)
+    struct.pack_into("<QQ", envelope, 72, locators[0], 11)
     envelope[88:120] = hashlib.sha256(envelope[:88]).digest()
     envelope_buffer = array(envelope)
     envelope_buffers.append(envelope_buffer)
@@ -386,6 +411,39 @@ assert lib.vcs_publication_commit(ctypes.byref(publication)) == USAGE
 assert publication.result_phase == 0xBAD and state["events"] == []
 objects[0].envelope_header = ctypes.cast(saved_header_address, P)
 
+multi_index = next(index for index, value in enumerate(objects)
+                   if value.extent_count > 1)
+saved_extents = bytes(extent_buffers[multi_index])
+for offset in (0, 10, 12, 16, 48, 56, 64, 4096 + 64, 4095):
+    extent_buffers[multi_index][offset] ^= 1
+    backend, state = backend_for()
+    publication = request(backend)
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+    assert publication.result_phase == 0xBAD and state["events"] == []
+    extent_buffers[multi_index][:] = saved_extents
+saved_locator = locator_buffers[multi_index][1]
+locator_buffers[multi_index][1] = locator_buffers[multi_index][0]
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+locator_buffers[multi_index][1] = saved_locator
+saved_extent_count = objects[multi_index].extent_count
+objects[multi_index].extent_count -= 1
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+objects[multi_index].extent_count = saved_extent_count
+saved_extents_address = ctypes.cast(objects[multi_index].extents,
+                                    ctypes.c_void_p).value
+objects[multi_index].extents = None
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == USAGE
+assert publication.result_phase == 0xBAD and state["events"] == []
+objects[multi_index].extents = ctypes.cast(saved_extents_address, P)
+
 # Ownership inputs are canonical and every staged object is pinned by the
 # current transaction key before durable staging begins.
 saved_edges = bytes(edges)
@@ -413,4 +471,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated envelopes/closure, canonical staging, transaction pins, atomic failures)")
+print("VCS publication: PASS (authenticated extent chains/closure, canonical staging, transaction pins, atomic failures)")
