@@ -216,6 +216,13 @@ protocol canvas-core 1 {
         ; does not lock for want of input: a video playing (PRO-23)
         request set_idle_inhibit(surface: handle, on: bool)
 
+        ; A viewport (PRO-15): only x, y, width, height of the buffer shown
+        ; (width and height 0: all of it), at dst_width x dst_height on the
+        ; screen (0: the part's size at the buffer scale). Each pair is both
+        ; 0 or neither. A part not inside the buffer draws nothing
+        request set_viewport(surface: handle, x: uint, y: uint, width: uint, height: uint,
+                             dst_width: uint, dst_height: uint)
+
         event frame_done(surface: handle, callback: handle, time: ulong, flags: uint)
         event enter(surface: handle, output: handle)
         event leave(surface: handle, output: handle)
