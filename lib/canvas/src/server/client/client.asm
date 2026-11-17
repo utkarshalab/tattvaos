@@ -30,6 +30,7 @@ extern clipboard_client_gone
 extern output_client_gone
 extern seat_client_gone
 extern buffer_destroy_client
+extern memset
 
 %define CLIENT_CONNECTING   1
 %define CLIENT_ACTIVE       2
@@ -303,7 +304,14 @@ client_disconnect:
     mov rsi, r12
     call client_registry_remove
 
-    mov rdi, [r13 + Client.region]
+    ; The region, wiped first (its channels carried the client's messages,
+    ; its arena the client's state; SEC-07)
+    mov r12, [r13 + Client.region]
+    mov rdi, [r13 + Client.arena]
+    xor esi, esi
+    mov edx, CLIENT_REGION_BYTES
+    call memset
+    mov rdi, r12
     call ut_mem_free
 
     xor rax, rax
