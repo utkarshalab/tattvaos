@@ -62,6 +62,13 @@ protocol canvas-input 1 {
         ; motion (set_relative), or the client may inject input. No client
         ; can move the pointer onto anything not its own.
         request warp(surface: handle, x: int, y: int)
+
+        ; The client's own pointer image over this surface (PTR-16): one of
+        ; its 32-bit buffers, at most 24x24, the tip at hot_x, hot_y (each at
+        ; most 16, inside it). The pixels are copied: later drawing in the
+        ; buffer does not change it. Pixels mostly see-through are left out.
+        ; One frame; set_shape goes back to a built-in one
+        request set_cursor(surface: handle, buffer: handle, hot_x: uint, hot_y: uint)
     }
 
     ; ------------------------------------------------------------------------
