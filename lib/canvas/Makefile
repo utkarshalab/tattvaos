@@ -106,6 +106,7 @@ GFX_SRCS := \
     $(UGFX_DIR)/core/blend_avx2.asm \
     $(UGFX_DIR)/core/blend_avx512.asm \
     $(UGFX_DIR)/core/scale.asm \
+    $(UGFX_DIR)/core/ninepatch.asm \
     $(UGFX_DIR)/core/transform.asm \
     $(UGFX_DIR)/core/clip.asm \
     $(UGFX_DIR)/2d/line.asm \
