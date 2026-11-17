@@ -65,6 +65,7 @@ test_taskbar_suite:
     CASE tb_mirror
     CASE tb_contrast
     CASE tb_urgent
+    CASE tb_icon
     mov eax, ebx
     pop rbx
     ret
@@ -753,6 +754,39 @@ tb_urgent:
     mov ecx, [rax + Taskbar.entries + TaskbarEntry.color]
     mov [rel color], ecx
     PIXEL BLOCK_X(0) + 5, TASKBAR_PAD + 10, [rel color]
+    PASS
+
+; WIN-15: window A's own buffer, all green, as its icon: drawn at its
+; block's left; buffer 0 takes it away
+tb_icon:
+    sub rsp, 8
+    call new_window
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov ecx, [rax + Buffer.stride]
+    imul ecx, ecx, 12
+    shr ecx, 2
+    mov eax, 0xFF00FF00
+    rep stosd
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov eax, [rel buffer]
+    mov [rel req + 4], eax
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_ICON, 8
+    call poll
+    call poll
+    PIXEL BLOCK_X(0) + ICON_INSET + 8, ICON_Y + 8, 0xFF00FF00
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_ICON, 8
+    call poll
+    call poll
+    mov rax, [rel bar]
+    mov ecx, [rax + Taskbar.entries + TaskbarEntry.color]
+    mov [rel color], ecx
+    PIXEL BLOCK_X(0) + ICON_INSET + 8, ICON_Y + 8, [rel color]
     PASS
 
 ; High contrast: the bar black, the active block yellow, another white, a
