@@ -106,6 +106,30 @@ vcs_publication_commit:
  call vcs_object_index_root_verify
  test eax,eax
  jnz .done
+ ; A born repository HEAD must resolve to a commit in this exact authenticated
+ ; index generation. An unborn repository encodes all 32 bytes as zero.
+ mov rax,[rbx+vcs_publication.root]
+ mov rdx,[rax+vcs_superblock.head]
+ or rdx,[rax+vcs_superblock.head+8]
+ or rdx,[rax+vcs_superblock.head+16]
+ or rdx,[rax+vcs_superblock.head+24]
+ jz .head_valid
+ mov rcx,[rbx+vcs_publication.index_root]
+ mov rdx,[rcx+vcs_object_index_root.records]
+ mov [rsp+56+vcs_object_index_lookup.records],rdx
+ mov rdx,[rcx+vcs_object_index_root.record_count]
+ mov [rsp+56+vcs_object_index_lookup.record_count],rdx
+ lea rdx,[rax+vcs_superblock.head]
+ mov [rsp+56+vcs_object_index_lookup.object_id],rdx
+ mov qword [rsp+56+vcs_object_index_lookup.result],0
+ lea rdi,[rsp+56]
+ call vcs_object_index_find
+ test eax,eax
+ jnz .corrupt
+ mov rax,[rsp+56+vcs_object_index_lookup.result]
+ cmp dword [rax+vcs_object_index_record.object_type],VCS_OBJ_COMMIT
+ jne .corrupt
+.head_valid:
  mov rax,[rbx+vcs_publication.root]
  lea rdi,[rax+vcs_superblock.object_index_root]
  mov rax,[rbx+vcs_publication.index_root]
@@ -228,9 +252,42 @@ vcs_publication_commit:
  imul rax,vcs_ownership_edge_size
  mov rdi,[rbx+vcs_publication.edges]
  add rdi,rax
+ mov [rsp+40],rdi
  call vcs_ownership_edge_validate
  test eax,eax
  jnz .done
+ ; Every child named by a staged ownership edge must exist with the declared
+ ; immutable type in the same authenticated index generation.
+ mov rax,[rbx+vcs_publication.index_root]
+ mov rdx,[rax+vcs_object_index_root.records]
+ mov [rsp+56+vcs_object_index_lookup.records],rdx
+ mov rdx,[rax+vcs_object_index_root.record_count]
+ mov [rsp+56+vcs_object_index_lookup.record_count],rdx
+ mov rax,[rsp+40]
+ lea rdx,[rax+vcs_ownership_edge.child_id]
+ mov [rsp+56+vcs_object_index_lookup.object_id],rdx
+ mov qword [rsp+56+vcs_object_index_lookup.result],0
+ lea rdi,[rsp+56]
+ call vcs_object_index_find
+ test eax,eax
+ jnz .corrupt
+ mov rdx,[rsp+56+vcs_object_index_lookup.result]
+ mov rax,[rsp+40]
+ mov ecx,[rax+vcs_ownership_edge.child_type]
+ cmp ecx,[rdx+vcs_object_index_record.object_type]
+ jne .corrupt
+ ; Immutable object owners are object IDs too. Other owner kinds use
+ ; namespace-specific durable keys and are validated by their catalogs.
+ cmp dword [rax+vcs_ownership_edge.owner_kind],VCS_OWNER_IMMUTABLE
+ jne .edge_membership_valid
+ lea rdx,[rax+vcs_ownership_edge.owner_key]
+ mov [rsp+56+vcs_object_index_lookup.object_id],rdx
+ mov qword [rsp+56+vcs_object_index_lookup.result],0
+ lea rdi,[rsp+56]
+ call vcs_object_index_find
+ test eax,eax
+ jnz .corrupt
+.edge_membership_valid:
  inc qword [rsp+32]
  jmp .validate_edges
 .begin:
