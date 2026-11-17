@@ -185,6 +185,11 @@ programs use it.
   which return only with a negative error (`-EBUSY` while inhibited); Sleep
   uses `ut_power_suspend` above. Without them Restart and Shut down do
   nothing.
+- The volume and brightness keys (113 to 115, 224, 225) are Canvas's; it
+  shows the level and asks the kernel to set it, both weak imports:
+  `ut_audio_set_volume` (`rdi` 0 to 100, `rsi` 1 when muted) and
+  `ut_backlight_set` (`rdi` 0 to 100, the built-in panel's). Each returns
+  `rax` 0 or a negative error; without them only the display changes.
 - The app launcher (Super+Space) asks for the apps the user may start, and
   starts one:
 
