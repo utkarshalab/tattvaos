@@ -7,11 +7,17 @@
 ; as it was), aligned allocation (the asked alignment, 16 by default, out of
 ; memory), mark / rewind (and a mark outside refused), free_all, used /
 ; available, contains, child arenas (inside the parent, too big refused,
-; destroy giving back only the child's part).
+; destroy giving back only the child's part). A buffer given back to a
+; buffer pool comes back zeroed (SEC-07).
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/struct_offsets.inc"
+
+extern buffer_pool_init
+extern buffer_pool_release
+extern buffer_pool_acquire
 
 extern arena_init
 extern arena_create
@@ -59,6 +65,7 @@ test_arena_main:
     CASE ta_child
     CASE ta_child_too_big
     CASE ta_child_destroy
+    CASE ta_pool_wipes
     mov eax, ebx
     pop rbx
     ret
@@ -498,8 +505,56 @@ ta_child_destroy:
     pop rbx
     ret
 
+; a 4x4 buffer of 0xAA bytes released into a pool: its pixels all zero,
+; and the pool gives it back for 4x4 of its format
+ta_pool_wipes:
+    push rbx
+    call fresh
+    lea rdi, [rel pixels]
+    mov al, 0xAA
+    mov ecx, 64
+    rep stosb
+    lea rax, [rel pixels]
+    mov [rel fake_buffer + Buffer.base], rax
+    mov qword [rel fake_buffer + Buffer.size], 64
+    mov qword [rel fake_buffer + Buffer.width], 4
+    mov qword [rel fake_buffer + Buffer.height], 4
+    mov qword [rel fake_buffer + Buffer.format], 7
+    mov qword [rel fake_buffer + Buffer.state], 1
+    lea rdi, [rel pool]
+    lea rsi, [rel arena]
+    call buffer_pool_init
+    lea rdi, [rel pool]
+    lea rsi, [rel fake_buffer]
+    call buffer_pool_release
+    test rax, rax
+    FAIL_IF nz
+    lea rdi, [rel pixels]
+    xor eax, eax
+    mov ecx, 64
+    repe scasb
+    FAIL_IF ne
+    lea rdi, [rel pool]
+    mov esi, 4
+    mov edx, 4
+    mov ecx, 7
+    call buffer_pool_acquire
+    lea rcx, [rel fake_buffer]
+    cmp rax, rcx
+    FAIL_IF ne
+    xor eax, eax
+    pop rbx
+    ret
+.fail:
+    mov eax, 1
+    pop rbx
+    ret
+
 section .bss
 alignb 64
 store:      resb STORE_SIZE
+pixels:     resb 64
+fake_buffer: resb Buffer_size
+pool:       resq 4
 arena:      resq 4
 child:      resq 4
