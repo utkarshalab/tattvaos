@@ -18,6 +18,7 @@ struc vcs_publish_object
     .flags   resd 1
     .payload resq 1
     .length  resq 1
+    .envelope resq 1 ; authenticated allocator-provided physical locator
 endstruc
 
 ; All callbacks return a VCS status except poison, whose result is ignored.
