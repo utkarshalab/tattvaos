@@ -42,6 +42,8 @@ extern output_set_scale
 extern magnify_focus
 extern window_move_to_workspace
 extern server_set_pointer
+extern menu_open_kind
+extern launcher_add_app
 extern server_set_button_map
 extern server_set_pen_curve
 extern compositor_output_at
@@ -185,6 +187,8 @@ test_window_suite:
     CASE tw_buttons, CAP_SHELL
     CASE tw_relative, CAP_SHELL
     CASE tw_secure, CAP_SHELL
+    CASE tw_power_menu, CAP_SHELL
+    CASE tw_launcher, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -4098,6 +4102,144 @@ tw_secure:
     KEYBOARD_ON surface_c
     PASS
 
+; the menu open is %1 (0 none, 1 power, 2 launcher)
+%macro MENU_IS 1
+    call menu_open_kind
+    cmp eax, %1
+    jne .fail
+%endmacro
+; Server field %1 is %2
+%macro SERVER_IS 2
+    cmp qword [rel server + Server.%1], %2
+    jne .fail
+%endmacro
+; the window's client heard no key since the last drain
+%macro NO_KEYS 0
+    mov edi, CWP_OBJ_KEYBOARD
+    mov esi, KEYBOARD_EV_KEY
+    call find_event
+    test eax, eax
+    jnz .fail
+%endmacro
+
+; DSK-06: Ctrl+Alt+X does not, Ctrl+Alt+Delete opens the power menu; Down twice and Enter is
+; Sleep (one suspend asked for), the window hearing none of those keys; the
+; power key opens it too, Down past the end stays on Shut down; Esc closes
+; it with nothing chosen
+tw_power_menu:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    INJECT INPUT_KEY, 29, 1             ; Ctrl, Alt: X is not the menu's,
+    INJECT INPUT_KEY, 56, 1             ; Delete is
+    TAP 45
+    MENU_IS 0
+    INJECT INPUT_KEY, 111, 1
+    call poll
+    MENU_IS 1
+    INJECT INPUT_KEY, 111, 0
+    INJECT INPUT_KEY, 56, 0
+    INJECT INPUT_KEY, 29, 0
+    call poll
+    call drain
+    mov rax, [rel server + Server.suspends]
+    mov [rel req], rax
+    TAP 108
+    TAP 108
+    TAP 28
+    MENU_IS 0
+    NO_KEYS
+    SERVER_IS power_last, 3
+    mov rax, [rel req]
+    inc rax
+    cmp [rel server + Server.suspends], rax
+    jne .fail
+    TAP 116                             ; the power key
+    MENU_IS 1
+    TAP 108
+    TAP 108
+    TAP 108
+    TAP 108
+    TAP 108
+    TAP 28
+    SERVER_IS power_last, 5
+    TAP 116
+    TAP 1                               ; Esc
+    MENU_IS 0
+    SERVER_IS power_last, 5
+    PASS
+
+; DSK-07: Super+Space opens the launcher over three apps; "te" leaves
+; Terminal and Text editor, Down and Enter starts Text editor (the third);
+; "q" matches nothing and Enter keeps it open; Backspace brings all back and
+; Enter starts the first; Shift+D finds Text editor, any case; Esc closes
+tw_launcher:
+    sub rsp, 8
+    lea rdi, [rel server]
+    lea rsi, [rel app_terminal]
+    mov edx, 8
+    call launcher_add_app
+    lea rdi, [rel server]
+    lea rsi, [rel app_files]
+    mov edx, 5
+    call launcher_add_app
+    lea rdi, [rel server]
+    lea rsi, [rel app_editor]
+    mov edx, 11
+    call launcher_add_app
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    INJECT INPUT_KEY, 125, 1            ; Super+Space
+    TAP 57
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    MENU_IS 2
+    call drain
+    TAP 20                              ; t, e
+    TAP 18
+    TAP 108
+    TAP 28
+    MENU_IS 0
+    NO_KEYS
+    SERVER_IS launches, 1
+    SERVER_IS launch_last, 3
+    INJECT INPUT_KEY, 125, 1
+    TAP 57
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    TAP 16                              ; q
+    TAP 28
+    MENU_IS 2
+    SERVER_IS launches, 1
+    TAP 14                              ; Backspace
+    TAP 28
+    SERVER_IS launches, 2
+    SERVER_IS launch_last, 1
+    INJECT INPUT_KEY, 125, 1
+    TAP 57
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    INJECT INPUT_KEY, 42, 1             ; Shift+D: only Text editor has a d
+    TAP 32
+    INJECT INPUT_KEY, 42, 0
+    call poll
+    TAP 28
+    SERVER_IS launch_last, 3
+    INJECT INPUT_KEY, 125, 1
+    TAP 57
+    INJECT INPUT_KEY, 125, 0
+    call poll
+    TAP 1
+    MENU_IS 0
+    SERVER_IS launches, 3
+    PASS
+
 ; %1 (a table field of Server) still resolves handle variable %2
 %macro STILL_THERE 2
     mov rdi, [rel server + Server.%1]
@@ -4439,6 +4581,9 @@ blend_src:      dd 0xFF000000, 0xFFFFFFFF   ; 2 x 1
 clip_type:      db "text/plain"
                 times CLIP_TYPE_LEN - 10 db 0
 clip_remote:    db "remote"
+app_terminal:   db "Terminal"
+app_files:      db "Files"
+app_editor:     db "Text editor"
 corner_src:     dd 0xFF000000, 0xFF000000   ; 2 x 2, the bottom left white
                 dd 0xFFFFFFFF, 0xFF000000
 
