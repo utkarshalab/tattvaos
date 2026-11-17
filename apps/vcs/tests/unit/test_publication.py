@@ -47,6 +47,7 @@ class Publication(ctypes.Structure):
                 ("objects", ctypes.POINTER(PublishObject)),
                 ("object_count", ctypes.c_uint64),
                 ("edges", ctypes.POINTER(Edge)), ("edge_count", ctypes.c_uint64),
+                ("transaction_owner", P),
                 ("root", P), ("root_length", ctypes.c_uint64),
                 ("tx_sequence", ctypes.c_uint64), ("generation", ctypes.c_uint64),
                 ("index_root", ctypes.POINTER(IndexRoot)),
@@ -83,13 +84,23 @@ for index, (kind, payload) in enumerate(object_specs):
     objects[index].payload = payload_buffers[index]
     objects[index].length = len(payload)
 
-edges = (Edge * 1)()
-edges[0].owner_kind = 1
-edges[0].child_type = 1
 chunk_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 1)
 file_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 2)
-edges[0].owner_key[:] = objects[file_index].object_id
-edges[0].child_id[:] = objects[chunk_index].object_id
+transaction_owner = array(hashlib.sha256(b"publication transaction 11").digest())
+edge_values = [(1, 1, bytes(objects[file_index].object_id),
+                bytes(objects[chunk_index].object_id))]
+for value in objects:
+    edge_values.append((5, value.object_type, bytes(transaction_owner),
+                        bytes(value.object_id)))
+edge_values.sort(key=lambda value: (value[3], value[0], value[2]))
+edges = (Edge * len(edge_values))()
+for edge, (owner_kind, child_type, owner_key, child_id) in zip(edges, edge_values):
+    edge.owner_kind = owner_kind
+    edge.child_type = child_type
+    edge.owner_key[:] = owner_key
+    edge.child_id[:] = child_id
+immutable_edge_index = next(index for index, edge in enumerate(edges)
+                            if edge.owner_kind == 1)
 
 commit_payload = b"canonical head commit"
 commit_id = oid(4, commit_payload)
@@ -138,7 +149,7 @@ def backend_for(fail=None, abort_fail=False):
         return IO if fail == name else OK
     @BEGIN_CB
     def begin(ctx, tx, object_count, edge_count):
-        assert (tx, object_count, edge_count) == (11, 2, 1)
+        assert (tx, object_count, edge_count) == (11, 2, len(edges))
         return status("begin")
     @PAIR_CB
     def put_object(ctx, value):
@@ -171,7 +182,8 @@ def backend_for(fail=None, abort_fail=False):
 
 
 def request(backend):
-    return Publication(ctypes.pointer(backend), previous_root, objects, 2, edges, 1, root,
+    return Publication(ctypes.pointer(backend), previous_root, objects, 2,
+                       edges, len(edges), transaction_owner, root,
                        len(root_bytes), 11, 9, ctypes.pointer(index_root), 0xBAD)
 
 
@@ -180,7 +192,8 @@ publication = request(backend)
 success_status = lib.vcs_publication_commit(ctypes.byref(publication))
 assert success_status == OK
 assert publication.result_phase == COMMITTED
-assert state["events"] == ["begin", "object", "object", "edge", "root", "flush", "publish"]
+assert state["events"] == ["begin", "object", "object", "edge", "edge",
+                           "edge", "root", "flush", "publish"]
 
 for failed, phase in (("begin", NONE), ("object", ABORTED), ("edge", ABORTED),
                       ("root", ABORTED), ("flush", ABORTED)):
@@ -279,19 +292,19 @@ for mutation in ("head_missing", "head_wrong_type", "child_missing",
         candidate_buffer = array(candidate)
         publication.root = candidate_buffer
     elif mutation == "child_missing":
-        edges[0].child_id[0] ^= 1
+        edges[immutable_edge_index].child_id[0] ^= 1
     elif mutation == "child_wrong_type":
-        edges[0].child_type = 2
+        edges[immutable_edge_index].child_type = 2
     else:
-        edges[0].owner_key[0] ^= 1
+        edges[immutable_edge_index].owner_key[0] ^= 1
     assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
     assert publication.result_phase == 0xBAD and state["events"] == []
     if mutation == "child_missing":
-        edges[0].child_id[0] ^= 1
+        edges[immutable_edge_index].child_id[0] ^= 1
     elif mutation == "child_wrong_type":
-        edges[0].child_type = 1
+        edges[immutable_edge_index].child_type = 1
     elif mutation == "owner_missing":
-        edges[0].owner_key[0] ^= 1
+        edges[immutable_edge_index].owner_key[0] ^= 1
 
 # Staged objects are a strict unique ID set created by this transaction.
 saved_objects = bytes(objects)
@@ -331,4 +344,31 @@ root_image[184:216] = bytes(index_hash)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
 root[:] = root_image
 
-print("VCS publication: PASS (authenticated closure/transaction, canonical staging, atomic failures)")
+# Ownership inputs are canonical and every staged object is pinned by the
+# current transaction key before durable staging begins.
+saved_edges = bytes(edges)
+ctypes.memmove(ctypes.byref(edges, ctypes.sizeof(Edge)),
+               ctypes.byref(edges), ctypes.sizeof(Edge))
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+ctypes.memmove(ctypes.byref(edges), saved_edges, len(saved_edges))
+
+pin_index = next(index for index, edge in enumerate(edges)
+                 if edge.owner_kind == 5)
+edges[pin_index].owner_kind = 3
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+ctypes.memmove(ctypes.byref(edges), saved_edges, len(saved_edges))
+
+wrong_transaction_owner = array(hashlib.sha256(b"wrong transaction").digest())
+backend, state = backend_for()
+publication = request(backend)
+publication.transaction_owner = wrong_transaction_owner
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+
+print("VCS publication: PASS (authenticated closure, canonical staging, transaction pins, atomic failures)")
