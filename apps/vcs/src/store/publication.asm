@@ -29,7 +29,7 @@ vcs_publication_commit:
  push r13
  push r14
  push r15
- sub rsp,168
+ sub rsp,184
  test rdi,rdi
  jz .usage
  mov rbx,rdi
@@ -171,6 +171,22 @@ vcs_publication_commit:
  add rax,[rbx+vcs_publication.objects]
  jc .space
 .objects_pointer_ok:
+ ; Sum the complete physical write set before inspecting object bytes. The
+ ; backend can therefore reserve all extent blocks before starting storage.
+ mov qword [rsp+168],0
+ xor ecx,ecx
+.count_extents:
+ cmp rcx,r12
+ jae .extent_total_valid
+ mov rax,rcx
+ imul rax,vcs_publish_object_size
+ add rax,[rbx+vcs_publication.objects]
+ mov rdx,[rax+vcs_publish_object.extent_count]
+ add [rsp+168],rdx
+ jc .space
+ inc rcx
+ jmp .count_extents
+.extent_total_valid:
  mov r13,[rbx+vcs_publication.edge_count]
  test r13,r13
  jz .edges_pointer_ok
@@ -448,7 +464,8 @@ vcs_publication_commit:
  mov rdi,[rbp+vcs_publish_backend.context]
  mov rsi,[rbx+vcs_publication.tx_sequence]
  mov rdx,r12
- mov rcx,r13
+ mov rcx,[rsp+168]
+ mov r8,r13
  call [rbp+vcs_publish_backend.begin]
  test eax,eax
  jnz .callback_done
@@ -544,7 +561,7 @@ vcs_publication_commit:
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
 .done:
- add rsp,168
+ add rsp,184
  pop r15
  pop r14
  pop r13
