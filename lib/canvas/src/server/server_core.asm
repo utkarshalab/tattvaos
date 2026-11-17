@@ -1099,6 +1099,62 @@ HANDLER h_surface_set_buffer_scale, 8
     call compositor_damage_surface
 HANDLER_END
 
+; cw_surface.set_viewport(surface, x, y, width, height, dst_width,
+; dst_height): the part of its buffer shown, and how big (PRO-15)
+HANDLER h_surface_set_viewport, 28
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov r12, rax                        ; the header is not needed again
+    mov rax, -(EINVAL)
+    xor ecx, ecx                        ; each pair both 0 or neither
+    cmp dword [r13 + 12], 0
+    sete cl
+    xor edx, edx
+    cmp dword [r13 + 16], 0
+    sete dl
+    cmp ecx, edx
+    jne .return
+    cmp dword [r13 + 20], 0
+    sete cl
+    cmp dword [r13 + 24], 0
+    sete dl
+    cmp ecx, edx
+    jne .return
+    cmp dword [r13 + 4], 32768        ; no buffer is larger
+    ja .return
+    cmp dword [r13 + 8], 32768
+    ja .return
+    cmp dword [r13 + 12], 32768
+    ja .return
+    cmp dword [r13 + 16], 32768
+    ja .return
+    cmp dword [r13 + 20], 32768
+    ja .return
+    cmp dword [r13 + 24], 32768
+    ja .return
+    mov rdi, r14                        ; where it was, and where it is
+    mov rsi, r12
+    call compositor_damage_surface
+    mov eax, [r13 + 4]
+    mov [r12 + Surface.vp_x], eax
+    mov eax, [r13 + 8]
+    mov [r12 + Surface.vp_y], eax
+    mov eax, [r13 + 12]
+    mov [r12 + Surface.vp_w], eax
+    mov eax, [r13 + 16]
+    mov [r12 + Surface.vp_h], eax
+    mov eax, [r13 + 20]
+    mov [r12 + Surface.vp_dst_w], eax
+    mov eax, [r13 + 24]
+    mov [r12 + Surface.vp_dst_h], eax
+    mov rdi, r14
+    mov rsi, r12
+    call compositor_damage_surface
+    xor eax, eax
+HANDLER_END
+
 ; cw_output.list(): every output, then done; told of changes from now
 HANDLER h_output_list, 0
     NEEDS_CAP CAP_OUTPUT
@@ -1174,6 +1230,94 @@ HANDLER h_pointer_set_shape, 8
     mov [rax + Surface.cursor_shape], rcx
     mov rdi, r14
     call sw_cursor_redraw
+HANDLER_END
+
+; cw_pointer.set_cursor(surface, buffer, hot_x, hot_y): its own pointer
+; image, copied (PTR-16)
+HANDLER h_pointer_set_cursor, 16
+    NEEDS_CAP CAP_POINTER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    mov r12, rax                        ; the header is not needed again
+    mov esi, [r13 + 4]
+    call own_buffer
+    test rax, rax
+    jz .bad_object
+    mov rsi, rax
+    mov rax, -(EINVAL)                  ; 32-bit, small, the tip inside
+    cmp qword [rsi + Buffer.format], DRM_FORMAT_RGB565
+    je .return
+    cmp qword [rsi + Buffer.width], CURSOR_MAX
+    ja .return
+    cmp qword [rsi + Buffer.height], CURSOR_MAX
+    ja .return
+    mov ecx, [r13 + 8]
+    cmp ecx, CURSOR_HOT_MAX
+    ja .return
+    cmp rcx, [rsi + Buffer.width]
+    jae .return
+    mov ecx, [r13 + 12]
+    cmp ecx, CURSOR_HOT_MAX
+    ja .return
+    cmp rcx, [rsi + Buffer.height]
+    jae .return
+    cmp qword [r12 + Surface.cursor_image], 0
+    jne .have
+    push rsi
+    push rsi                            ; 16-byte aligned
+    mov rdi, [rbx + Client.arena]
+    mov esi, CURSOR_MAX * CURSOR_MAX * 4
+    call arena_alloc
+    pop rsi
+    pop rsi
+    test rax, rax
+    jz .no_room
+    mov [r12 + Surface.cursor_image], rax
+.have:
+    mov eax, [rsi + Buffer.width]
+    mov [r12 + Surface.cursor_w], eax
+    mov eax, [rsi + Buffer.height]
+    mov [r12 + Surface.cursor_h], eax
+    mov eax, [r13 + 8]
+    mov [r12 + Surface.cursor_hot_x], eax
+    mov eax, [r13 + 12]
+    mov [r12 + Surface.cursor_hot_y], eax
+    xor r8d, r8d                        ; no alpha of its own: opaque
+    cmp qword [rsi + Buffer.format], DRM_FORMAT_BGR8888
+    jne .rows
+    mov r8d, 0xFF000000
+.rows:
+    xor r9d, r9d                        ; row
+.row:
+    cmp r9d, [r12 + Surface.cursor_h]
+    jae .copied
+    mov rax, r9
+    imul rax, [rsi + Buffer.stride]
+    add rax, [rsi + Buffer.base]
+    imul edx, r9d, CURSOR_MAX * 4
+    add rdx, [r12 + Surface.cursor_image]
+    xor ecx, ecx
+.column:
+    cmp ecx, [r12 + Surface.cursor_w]
+    jae .next_row
+    mov r10d, [rax + rcx * 4]
+    or r10d, r8d
+    mov [rdx + rcx * 4], r10d
+    inc ecx
+    jmp .column
+.next_row:
+    inc r9d
+    jmp .row
+.copied:
+    mov qword [r12 + Surface.cursor_shape], CURSOR_CUSTOM
+    mov rdi, r14
+    call sw_cursor_redraw
+    xor eax, eax
+    jmp .return
+.no_room:
+    mov rax, -(ENOMEM)
 HANDLER_END
 
 ; cw_surface.set_idle_inhibit(surface, on): while shown, no idle lock (PRO-23)
@@ -1369,6 +1513,7 @@ HANDLER_END
 %endmacro
 SIZE_LIMIT h_toplevel_set_min_size, min_w
 SIZE_LIMIT h_toplevel_set_max_size, max_w
+SIZE_LIMIT h_toplevel_set_aspect, aspect_w   ; its shape (WIN-08)
 
 ; cw_toplevel.set_parent(surface, parent): it belongs to the parent, one of
 ; the client's own windows; 0: to none (WIN-11)
