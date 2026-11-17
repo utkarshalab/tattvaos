@@ -80,6 +80,7 @@
 %define SURFACE_FRAME_CALLBACK    11
 %define SURFACE_COMMIT            12
 %define SURFACE_SET_IDLE_INHIBIT  13
+%define SURFACE_SET_VIEWPORT      14
 %define SURFACE_EV_FRAME_DONE     0
 %define SURFACE_EV_ENTER          1
 %define SURFACE_EV_LEAVE          2
@@ -104,6 +105,7 @@
 %define POINTER_SET_SHAPE          0
 %define POINTER_SET_RELATIVE       1
 %define POINTER_WARP               2
+%define POINTER_SET_CURSOR         3
 %define POINTER_EV_ENTER           0
 %define POINTER_EV_LEAVE           1
 %define POINTER_EV_MOTION          2
@@ -188,6 +190,7 @@
 %define TOPLEVEL_GET_ACTIVATION_TOKEN 16
 %define TOPLEVEL_ACTIVATE             17
 %define TOPLEVEL_SET_ICON             18
+%define TOPLEVEL_SET_ASPECT           19
 %define TOPLEVEL_EV_CONFIGURE         0
 %define TOPLEVEL_EV_CLOSE             1
 
