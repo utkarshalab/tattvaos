@@ -184,7 +184,7 @@
 | PRO-12 | Synchronous barrier / round trip, for debugging only | P2 | ✓ `cw_display.sync` -> serial: answered after everything the client sent before it, its requests handled in order; `test_server`, `test_fuzz` (a well-behaved client still answered after random traffic) |
 | PRO-13 | Client capability fingerprinting for compatibility shims | P4 | |
 | PRO-14 | Protocol compression for remote channels | P4 | |
-| PRO-15 | Viewport: crop and scale a buffer to a destination size | P2 | |
+| PRO-15 | Viewport: crop and scale a buffer to a destination size | P2 | ✓ `cw_surface.set_viewport(surface, x, y, width, height, dst_width, dst_height)`: the part of the buffer drawn, as a buffer of its own from there, and its size on the screen (0: the part's at the buffer scale); hit tests use the same size; a part outside the buffer draws nothing; `test_window` |
 | PRO-16 | Fractional-scale protocol for clients | P2 | ◐ decision 0012 accepted; `cw_output` (`output/output_watch`): list gives each output's id, place, size and scale in 120ths, then done, and the client hears of outputs added, rescaled, mirrored and removed; `cw_surface.set_buffer_scale` (120ths) shows a buffer at its surface's size, scaled (bilinear, blended) when drawn, and that size counts for placing, hit tests, title bars and damage; `test_window`. The layout is in logical units (OUT-08) |
 | PRO-17 | Content-type hints (video, game, photo) for scheduling and VRR | P3 | |
 | PRO-18 | Activation tokens and focus-request protocol | P2 | ✓ `shell/activation`: `cw_toplevel.get_activation_token` only while the surface has the keyboard (64 bits, SipHash under a kernel-entropy key, good once for ten seconds, eight kept); `cw_toplevel.activate` with one raises and gives the keyboard past the focus guard, without one marks it urgent; `test_window`. the launcher does not pass one to what it starts yet |
@@ -273,7 +273,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | G2D-08 | Rounded rectangles and window shadows | P2 | ◐ rounded rectangles in `ugfx/2d/shapes`; shadows need G2D-07 |
 | G2D-09 | Clip stacks and alpha masks | P2 | ✓ `ugfx/core/mask`, context save/restore |
 | G2D-10 | Full Porter-Duff and separable blend modes | P3 | |
-| G2D-11 | Nine-patch / border-image drawing | P2 | |
+| G2D-11 | Nine-patch / border-image drawing | P2 | ✓ `ugfx/core/ninepatch` (`ninepatch_draw`): corners as they are, edges and middle stretched, corners shrunk in proportion when they do not fit, insets past the source refused; `test_window` |
 | G2D-12 | Display-list API that `lib/web` and toolkits can emit into | P2 | ◐ `ugfx/2d/context` and `ugfx/2d/list`; not yet exposed to clients |
 | G2D-13 | Multi-core tile rasterizer for large surfaces | P3 | → SRV-11 |
 | G2D-14 | Material effects (frosted glass, vibrancy) with a low-cost fallback | P3 | → G2D-07 |
@@ -390,7 +390,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | PTR-13 | Animated cursors and smooth shape transitions | P3 | |
 | PTR-14 | Hide cursor while typing; show on move | P3 | ✓ `render/sw_cursor`: a key press that is not a modifier, a lock or the server's hides the arrow until the pointer moves; `test_window` |
 | PTR-15 | Correct cursor brightness in HDR (linear-light) | P3 | |
-| PTR-16 | Per-app custom cursors with size and frame limits | P2 | |
+| PTR-16 | Per-app custom cursors with size and frame limits | P2 | ◐ `cw_pointer.set_cursor(surface, buffer, hot_x, hot_y)`: the client's own pointer image over its surface, copied (at most 24x24, the tip within 16, inside it: what the redraw box holds at 2x), drawn at the output's scale, mostly see-through pixels left out; `set_shape` goes back; `test_window`. one frame: no animated cursors |
 | PTR-17 | Predictive pointer and touch extrapolation | P3 | |
 | PTR-18 | Raw low-latency path for high polling-rate mice | P4 | |
 
@@ -435,7 +435,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TXT-15 | Per-display text tuning: gamma, contrast, stem darkening, optical sizing | P3 | |
 | TXT-16 | Font features (tabular numbers, small caps) | P3 | |
 | TXT-17 | Synthetic bold and italic | P3 | |
-| TXT-18 | Underline, strikethrough and selection drawing | P2 | |
+| TXT-18 | Underline, strikethrough and selection drawing | P2 | ✓ `text/ui_text`: `ui_text_draw_styled` with underline and line-through (SVG `text-decoration`) and a selection painted behind the text from its first character's start to its last's end (`ui_text_measure`: the embedded font's advances); `test_ui_text` |
 | TXT-19 | SDF/MSDF glyphs for scaled and GPU text | P4 | |
 | TXT-20 | On-disk font cache for fast startup | P3 | |
 | TXT-21 | Per-user font installation and validation | P4 | |
@@ -467,7 +467,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | WIN-05 | Server-side decorations | P2 | ◐ `shell/titlebar`: `cw_toplevel.set_decorated`; a bar above the window, drawn with it, with minimize, maximize and close; dragging the bar moves the window; placement and maximize leave room for it; none while fullscreen; `test_window`. titles in the embedded font; the focused window's bar brighter, the two bars a focus change touches redrawn; `shell/decoration*` are older and unreachable |
 | WIN-06 | Popup positioning with constraint solving | P2 | ◐ `shell/window`: an offset on the parent, moved back onto the output, moved with the parent; a press on anything but a popup ends them; no flipping or sliding rules |
 | WIN-07 | Interactive move and resize with frame-synced configure | P2 | ◐ Alt+drag moves a window (`input/input`, `window_move`), Alt+right-drag sends it configure with its size plus the travel; its client sees none of the drag; `test_window`. Not frame-synced |
-| WIN-08 | Min/max size and aspect constraints | P2 | ◐ `cw_toplevel.set_min_size`, `set_max_size` (0: no limit); every size configure asks for (maximize, fullscreen, resize) kept inside them (`window_configure`); `test_window`. No aspect ratio |
+| WIN-08 | Min/max size and aspect constraints | P2 | ✓ `cw_toplevel.set_min_size`, `set_max_size` (0: no limit); every size configure asks for (maximize, fullscreen, resize) kept inside them (`window_configure`); `test_window`; `cw_toplevel.set_aspect(surface, width, height)`: sizes asked for keep the shape, the largest of it inside, not while maximized or fullscreen; `test_window` |
 | WIN-09 | Maximize, minimize, fullscreen and window states | P2 | ◐ `shell/window`: `cw_toplevel` set/unset maximized and fullscreen, set minimized; configure carries the states; maximized and fullscreen fill the output (fullscreen above top layers) and go back to the window's place and size; minimized leaves the output until `window_activate`; Super+Up, Super+Down; maximized windows keep out of layers' exclusive strips (`cw_layer.set_exclusive`), re-laid out when a strip changes; `test_window` |
 | WIN-10 | Modal dialogs: stacking, parent attachment, parent follows | P2 | ✓ `cw_toplevel.set_modal`: while a modal child is on the screen, whatever would give its parent the keyboard (a click, a tap, activation) gives it to the child (`window_modal_target`); children stay above their parent (`window_raise`) and move with it (`window_move`); `test_window` |
 | WIN-11 | Transient windows on the correct workspace and monitor | P2 | ✓ `cw_toplevel.set_parent` (one of the client's own windows, no loops): the child opens centred on its parent, on the parent's output and workspace, moves workspace with it, and belongs to none when the parent goes; `test_window` |
