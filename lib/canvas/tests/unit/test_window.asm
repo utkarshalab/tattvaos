@@ -186,9 +186,13 @@ test_window_suite:
     CASE tw_scroll, CAP_SHELL | CAP_SESSION
     CASE tw_buttons, CAP_SHELL
     CASE tw_relative, CAP_SHELL
+    CASE tw_middle, CAP_SHELL
     CASE tw_secure, CAP_SHELL
     CASE tw_power_menu, CAP_SHELL
     CASE tw_launcher, CAP_SHELL
+    CASE tw_offscreen, CAP_SHELL
+    CASE tw_warp, CAP_SHELL
+    CASE tw_touch_pointer, CAP_SHELL | CAP_POINTER | NO_INPUT
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -3110,6 +3114,15 @@ tw_touch:
     TOUCH 7, 2, 0, 250, 250             ; device 7: 250 of 1000 is 16, 12
     call poll
     EVENT_IS {CWP_OBJ_TOUCH, TOUCH_EV_DOWN}, surface_a, 2, 6 | (2 << 16)
+    mov rcx, [rel server + Server.input_seat]   ; a client with touch: no
+    xor eax, eax                                ; finger is the pointer
+.emulated:
+    imul edx, eax, TouchContact_size
+    cmp dword [rcx + InputSeat.touches + rdx + TouchContact.emulated], 0
+    jne .fail
+    inc eax
+    cmp eax, TOUCH_SLOTS
+    jb .emulated
     PASS
 
 ; a record of type %1, code %2, value %3 from device %4
@@ -3227,6 +3240,79 @@ tw_buttons:
     INJECT_FROM INPUT_BUTTON, 2, 0, 4
     call poll
     EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 7, 1
+    PASS
+
+; no button event waiting for the window
+%macro NO_BUTTON 0
+    mov edi, CWP_OBJ_POINTER
+    mov esi, POINTER_EV_BUTTON
+    call find_event
+    test eax, eax
+    jnz .fail
+%endmacro
+; PTR-05: middle-click emulation on. Left and right together are the
+; middle button, down and up, the second release dropped; a lone click is a
+; click; a press held back goes on motion, or when its 50 ms are up; the
+; other one pressed after them is no middle
+tw_middle:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 15, 15
+    call poll
+    call drain
+    lea rdi, [rel server]
+    mov esi, -1
+    mov edx, POINTER_MIDDLE_EMU
+    xor ecx, ecx
+    call server_set_pointer
+    INJECT INPUT_BUTTON, 0, 1
+    INJECT INPUT_BUTTON, 1, 1
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 2, 1
+    INJECT INPUT_BUTTON, 0, 0
+    INJECT INPUT_BUTTON, 1, 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 2, 0
+    NO_BUTTON
+    INJECT INPUT_BUTTON, 0, 1           ; a click
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 1
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 0
+    INJECT INPUT_BUTTON, 1, 1           ; held back, then a move
+    call poll
+    NO_BUTTON
+    POINTER 16, 15
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 1, 1
+    INJECT INPUT_BUTTON, 1, 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 1, 0
+    INJECT INPUT_BUTTON, 0, 1           ; held back, then its time is up
+    call poll
+    NO_BUTTON
+    mov rax, [rel server + Server.input_seat]
+    mov qword [rax + InputSeat.middle_since], 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 1
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 0
+    INJECT INPUT_BUTTON, 0, 1           ; right too late: two presses
+    call poll
+    mov rax, [rel server + Server.input_seat]
+    mov qword [rax + InputSeat.middle_since], 0
+    INJECT INPUT_BUTTON, 1, 1
+    call poll
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 0, 1
+    EVENT_IS {CWP_OBJ_POINTER, POINTER_EV_BUTTON}, surface_a, 1, 1
+    INJECT INPUT_BUTTON, 1, 0
+    INJECT INPUT_BUTTON, 0, 0
+    call poll
     PASS
 
 ; PTR-08: a window that asks hears the raw motion over it, 5, -3
@@ -4122,7 +4208,35 @@ tw_secure:
     jnz .fail
 %endmacro
 
-; DSK-06: Ctrl+Alt+X does not, Ctrl+Alt+Delete opens the power menu; Down twice and Enter is
+; edi = a keycode -> eax = 1 if the window's client heard it pressed since
+; the last drain (every key event read)
+key_heard:
+    push rbx
+    push r12
+    sub rsp, 8
+    mov ebx, edi
+    xor r12d, r12d
+.next:
+    mov edi, CWP_OBJ_KEYBOARD
+    mov esi, KEYBOARD_EV_KEY
+    call find_event
+    test eax, eax
+    jz .out
+    cmp [rel ans + 12], ebx
+    jne .next
+    cmp dword [rel ans + 16], 0
+    je .next
+    mov r12d, 1
+    jmp .next
+.out:
+    mov eax, r12d
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; DSK-06, KEY-07: Ctrl+Alt+X does not, Ctrl+Alt+Delete opens the power menu
+; and the window with the keyboard never hears that Delete; Down twice and Enter is
 ; Sleep (one suspend asked for), the window hearing none of those keys; the
 ; power key opens it too, Down past the end stays on Shut down; Esc closes
 ; it with nothing chosen
@@ -4137,9 +4251,14 @@ tw_power_menu:
     INJECT INPUT_KEY, 56, 1             ; Delete is
     TAP 45
     MENU_IS 0
+    call drain
     INJECT INPUT_KEY, 111, 1
     call poll
     MENU_IS 1
+    mov edi, 111
+    call key_heard
+    test eax, eax
+    jnz .fail
     INJECT INPUT_KEY, 111, 0
     INJECT INPUT_KEY, 56, 0
     INJECT INPUT_KEY, 29, 0
@@ -4238,6 +4357,185 @@ tw_launcher:
     TAP 1
     MENU_IS 0
     SERVER_IS launches, 3
+    PASS
+
+; the pointer is at %1, %2
+%macro POINTER_AT 2
+    mov rcx, [rel server + Server.input_seat]
+    cmp dword [rcx + InputSeat.x], %1
+    jne .fail
+    cmp dword [rcx + InputSeat.y], %2
+    jne .fail
+%endmacro
+; cw_pointer.warp(surface_a, %1, %2), then two turns
+%macro WARP 2
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], %1
+    mov dword [rel req + 8], %2
+    SEND CWP_OBJ_POINTER, POINTER_WARP, 12
+    call poll
+    call poll
+%endmacro
+
+; PTR-09: no grant, no warp; with raw motion asked for the pointer goes to
+; 2, 3 in the window, and 100, -5 is kept inside it (its right edge, its
+; top); with the pointer off the window nothing moves
+tw_warp:
+    push rbx
+    push r12
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 15, 15
+    call poll
+    call drain
+    WARP 2, 3
+    POINTER_AT 15, 15
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 1
+    SEND CWP_OBJ_POINTER, POINTER_SET_RELATIVE, 8
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov ebx, [rax + Surface.current + SurfaceState.buf_x]
+    mov r12d, [rax + Surface.current + SurfaceState.buf_y]
+    WARP 2, 3
+    lea eax, [rbx + 2]
+    lea ecx, [r12 + 3]
+    mov rdx, [rel server + Server.input_seat]
+    cmp [rdx + InputSeat.x], eax
+    jne .fail
+    cmp [rdx + InputSeat.y], ecx
+    jne .fail
+    WARP 100, -5
+    lea eax, [rbx + 15]
+    mov rdx, [rel server + Server.input_seat]
+    cmp [rdx + InputSeat.x], eax
+    jne .fail
+    cmp [rdx + InputSeat.y], r12d
+    jne .fail
+    POINTER 60, 40                      ; off it
+    call poll
+    WARP 1, 1
+    POINTER_AT 60, 40
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; TCH-04: a client with the pointer but no touch: a finger down on its
+; window is the left button pressed there, a move moves the pointer, up lets
+; go; a second finger meanwhile does nothing
+tw_touch_pointer:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    POINTER 60, 40
+    call poll
+    call drain
+    TOUCH 0, 0, 0, 12, 12               ; down
+    TOUCH 0, 0, 3, 0, 0
+    call poll
+    call poll
+    POINTER_AT 12, 12
+    FIND CWP_OBJ_POINTER, POINTER_EV_BUTTON
+    cmp dword [rel ans + 12], 0
+    jne .fail
+    cmp dword [rel ans + 16], 1
+    jne .fail
+    TOUCH 0, 1, 0, 14, 14               ; a second finger
+    TOUCH 0, 1, 3, 0, 0
+    call poll
+    call poll
+    POINTER_AT 12, 12
+    TOUCH 0, 0, 1, 15, 13               ; the first moves
+    TOUCH 0, 0, 3, 0, 0
+    call poll
+    call poll
+    POINTER_AT 15, 13
+    call drain
+    TOUCH 0, 0, 2, 0, 0                 ; and is lifted
+    TOUCH 0, 0, 3, 0, 0
+    call poll
+    call poll
+    FIND CWP_OBJ_POINTER, POINTER_EV_BUTTON
+    cmp dword [rel ans + 12], 0
+    jne .fail
+    cmp dword [rel ans + 16], 0
+    jne .fail
+    PASS
+
+; REL-16: a window at the far corner of a second output, the output
+; unplugged: it is on the first, its corner kept 32 pixels inside (x 32,
+; y 16 on 64x48); a maximized one there fills the first
+tw_offscreen:
+    sub rsp, 8
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    POINTER 100, 20
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, eax
+    call surface_of
+    mov rcx, [rel output_b]
+    cmp [rax + Surface.output], rcx
+    jne .fail                           ; shown on the second
+    lea rdi, [rel server]
+    mov rsi, rax
+    mov edx, 120                        ; near its bottom right
+    mov ecx, 44
+    call window_move
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_MAXIMIZED, 4
+    call poll
+    lea rdi, [rel server]               ; unplugged
+    mov rsi, [rel output_b]
+    call server_remove_output
+    test rax, rax
+    jnz .fail
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.outputs]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    mov rcx, [rax + Surface.window]
+    cmp dword [rcx + Window.x], 32
+    jne .fail
+    cmp dword [rcx + Window.y], 16
+    jne .fail
+    mov edi, [rel surface_b]
+    call surface_of
+    mov rcx, [rel server + Server.outputs]
+    cmp [rax + Surface.output], rcx
+    jne .fail
+    mov rcx, [rax + Surface.window]
+    cmp dword [rcx + Window.x], 0
+    jne .fail
     PASS
 
 ; %1 (a table field of Server) still resolves handle variable %2
