@@ -74,7 +74,7 @@ $(BUILD)/file_object.o: src/store/file_object.asm include/vcs.inc include/object
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/tree_object.o: src/store/tree_object.asm include/vcs.inc include/object_store.inc include/chunk_pipeline.inc include/file_object.inc include/tree_object.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/ownership.o: src/store/ownership.asm include/vcs.inc include/chunk_pipeline.inc include/file_object.inc include/tree_object.inc include/ownership.inc | $(BUILD)
+$(BUILD)/ownership.o: src/store/ownership.asm include/vcs.inc include/chunk_pipeline.inc include/file_object.inc include/tree_object.inc include/ownership.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/publication.o: src/store/publication.asm include/vcs.inc include/object_store.inc include/object_index.inc include/superblock.inc include/ownership.inc include/publication.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
