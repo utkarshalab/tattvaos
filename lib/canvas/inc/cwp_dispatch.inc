@@ -130,6 +130,9 @@
 %ifdef HAVE_h_surface_set_idle_inhibit
     CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_IDLE_INHIBIT, h_surface_set_idle_inhibit
 %endif
+%ifdef HAVE_h_surface_set_viewport
+    CWP_REQUEST CWP_OBJ_SURFACE, SURFACE_SET_VIEWPORT, h_surface_set_viewport
+%endif
 %ifdef HAVE_h_subsurface_get_parent
     CWP_REQUEST CWP_OBJ_SUBSURFACE, SUBSURFACE_GET_PARENT, h_subsurface_get_parent
 %endif
@@ -165,6 +168,9 @@
 %endif
 %ifdef HAVE_h_pointer_warp
     CWP_REQUEST CWP_OBJ_POINTER, POINTER_WARP, h_pointer_warp
+%endif
+%ifdef HAVE_h_pointer_set_cursor
+    CWP_REQUEST CWP_OBJ_POINTER, POINTER_SET_CURSOR, h_pointer_set_cursor
 %endif
 %ifdef HAVE_h_seat_watch
     CWP_REQUEST CWP_OBJ_SEAT, SEAT_WATCH, h_seat_watch
@@ -243,6 +249,9 @@
 %endif
 %ifdef HAVE_h_toplevel_set_icon
     CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_ICON, h_toplevel_set_icon
+%endif
+%ifdef HAVE_h_toplevel_set_aspect
+    CWP_REQUEST CWP_OBJ_TOPLEVEL, TOPLEVEL_SET_ASPECT, h_toplevel_set_aspect
 %endif
 %ifdef HAVE_h_popup_create
     CWP_REQUEST CWP_OBJ_POPUP, POPUP_CREATE, h_popup_create
