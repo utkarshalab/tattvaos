@@ -88,22 +88,31 @@ edges[0].child_type = 1
 edges[0].owner_key[:] = objects[1].object_id
 edges[0].child_id[:] = objects[0].object_id
 
-index_records = (IndexRecord * 2)()
-for slot, index in enumerate(sorted(range(2), key=lambda value: bytes(objects[value].object_id))):
-    index_records[slot].object_id[:] = objects[index].object_id
-    index_records[slot].envelope = 100 + index
-    index_records[slot].payload_length = objects[index].length
-    index_records[slot].object_type = objects[index].object_type
+commit_payload = b"canonical head commit"
+commit_id = oid(4, commit_payload)
+catalog = [
+    (bytes(objects[index].object_id), 100 + index, objects[index].length,
+     objects[index].object_type) for index in range(2)
+]
+catalog.append((commit_id, 102, len(commit_payload), 4))
+index_records = (IndexRecord * len(catalog))()
+for slot, (object_id, envelope, length, object_type) in enumerate(
+        sorted(catalog, key=lambda value: value[0])):
+    index_records[slot].object_id[:] = object_id
+    index_records[slot].envelope = envelope
+    index_records[slot].payload_length = length
+    index_records[slot].object_type = object_type
     index_records[slot].transaction = 11
 index_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 5, 0, 9, ctypes.sizeof(index_records))
 index_hash = array(hashlib.sha256(index_frame + bytes(index_records)).digest())
-index_root = IndexRoot(index_records, 2, 9, index_hash)
+index_root = IndexRoot(index_records, len(catalog), 9, index_hash)
 
 root_image = bytearray(512)
 root_image[:8] = b"UVCSREP3"
 struct.pack_into("<IIQQ", root_image, 8, 3, 512, 3, 9)
 root_image[32:48] = hashlib.sha256(b"publication repository uuid").digest()[:16]
 struct.pack_into("<II", root_image, 48, 1, 4096)
+root_image[56:88] = commit_id
 root_image[88:120] = hashlib.sha256(b"empty refs root").digest()
 root_image[120:152] = hashlib.sha256(b"empty ownership root").digest()
 root_image[184:216] = bytes(index_hash)
@@ -254,4 +263,32 @@ publication.root = bad_candidate_buffer
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated transition/index, ordered phases, abort/poison, atomic preflight)")
+# HEAD and every immutable ownership endpoint must be authenticated by the
+# exact index generation before the backend transaction begins.
+for mutation in ("head_missing", "head_wrong_type", "child_missing",
+                 "child_wrong_type", "owner_missing"):
+    backend, state = backend_for()
+    publication = request(backend)
+    if mutation.startswith("head"):
+        candidate = bytearray(root_image)
+        candidate[56:88] = (b"\xff" * 32 if mutation == "head_missing"
+                            else bytes(objects[1].object_id))
+        candidate[480:512] = hashlib.sha256(candidate[:480]).digest()
+        candidate_buffer = array(candidate)
+        publication.root = candidate_buffer
+    elif mutation == "child_missing":
+        edges[0].child_id[0] ^= 1
+    elif mutation == "child_wrong_type":
+        edges[0].child_type = 2
+    else:
+        edges[0].owner_key[0] ^= 1
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+    assert publication.result_phase == 0xBAD and state["events"] == []
+    if mutation == "child_missing":
+        edges[0].child_id[0] ^= 1
+    elif mutation == "child_wrong_type":
+        edges[0].child_type = 1
+    elif mutation == "owner_missing":
+        edges[0].owner_key[0] ^= 1
+
+print("VCS publication: PASS (authenticated transition/HEAD/ownership, ordered phases, atomic failures)")
