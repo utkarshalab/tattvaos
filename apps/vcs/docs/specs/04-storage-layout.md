@@ -233,6 +233,10 @@ the candidate's authenticated object-index generation. Every ownership child
 must resolve there with its declared object type, and every immutable-object
 owner key must also resolve there. Namespace owner keys such as refs and
 transactions are instead authenticated by their own catalogs.
+The staged-object list is strictly sorted by complete object ID with no
+duplicates. Each staged object's index record carries the transaction sequence
+being published. Objects deduplicated from an older generation remain reachable
+through the merged index and ownership graph but are not staged again.
 
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
