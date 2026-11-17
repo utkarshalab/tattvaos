@@ -44,6 +44,7 @@ test_handle_main:
     CASE th_full
     CASE th_clear
     CASE th_keeps_registers
+    CASE th_properties
     mov eax, ebx
     pop rbx
     ret
@@ -378,7 +379,170 @@ th_keeps_registers:
     pop rbx
     ret
 
+; QA-08: a handle table of 8 against a model. From four seeds, 400 random
+; steps: create (when 8 are live it must fail, else give a handle), destroy
+; any handle ever given (a live one goes, a dead one is refused), resolve
+; any (a live one gives its object, a dead one nothing, though its slot be
+; used again); the count always the live ones
+%define PROP_HANDLES    64              ; handles given, at most
+%define PROP_STEPS      400
+th_properties:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    xor r14d, r14d
+.seed:
+    lea rax, [rel prop_seeds]
+    mov rax, [rax + r14 * 8]
+    mov [rel prop_seed], rax
+    mov edx, 8
+    call fresh
+    test rax, rax
+    jnz .fail
+    xor ebx, ebx                        ; handles given
+    xor r13d, r13d                      ; live
+    lea rdi, [rel prop_live]
+    xor eax, eax
+    mov ecx, PROP_HANDLES
+    rep stosb
+    xor r12d, r12d
+.step:
+    mov edi, 3
+    call prop_below
+    test eax, eax
+    jz .create
+    test ebx, ebx
+    jz .counted                         ; nothing given yet
+    cmp eax, 1
+    je .destroy
+    mov edi, ebx                        ; resolve one
+    call prop_below
+    mov r8d, eax
+    lea rcx, [rel prop_handles]
+    mov esi, [rcx + r8 * 4]
+    lea rdi, [rel table]
+    push r8
+    push r8
+    call handle_resolve
+    pop r8
+    pop r8
+    lea rcx, [rel prop_live]
+    cmp byte [rcx + r8], 0
+    je .dead_resolves
+    lea rcx, [rel prop_objects]
+    lea rcx, [rcx + r8 * 8]
+    cmp rax, rcx
+    jne .fail
+    jmp .counted
+.dead_resolves:
+    test rax, rax
+    jnz .fail
+    jmp .counted
+.create:
+    cmp ebx, PROP_HANDLES
+    jae .counted
+    lea rdi, [rel table]
+    lea rsi, [rel prop_objects]
+    lea rsi, [rsi + rbx * 8]
+    call handle_create
+    cmp r13d, 8
+    jb .room
+    test eax, eax                       ; full: refused
+    jnz .fail
+    jmp .counted
+.room:
+    test eax, eax
+    jz .fail
+    lea rcx, [rel prop_handles]
+    mov [rcx + rbx * 4], eax
+    lea rcx, [rel prop_live]
+    mov byte [rcx + rbx], 1
+    inc ebx
+    inc r13d
+    jmp .counted
+.destroy:
+    mov edi, ebx
+    call prop_below
+    mov r8d, eax
+    lea rcx, [rel prop_handles]
+    mov esi, [rcx + r8 * 4]
+    lea rdi, [rel table]
+    push r8
+    push r8
+    call handle_destroy
+    pop r8
+    pop r8
+    lea rcx, [rel prop_live]
+    cmp byte [rcx + r8], 0
+    je .dead_destroyed
+    test rax, rax                       ; a live one goes
+    jnz .fail
+    mov byte [rcx + r8], 0
+    dec r13d
+    jmp .counted
+.dead_destroyed:
+    test rax, rax                       ; a dead one is refused
+    jz .fail
+.counted:
+    lea rdi, [rel table]
+    call handle_count
+    cmp eax, r13d
+    jne .fail
+    inc r12d
+    cmp r12d, PROP_STEPS
+    jb .step
+    inc r14d
+    cmp r14d, 4
+    jb .seed
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -> rax = the next random number (xorshift64), from prop_seed
+prop_random:
+    mov rax, [rel prop_seed]
+    mov rdx, rax
+    shl rdx, 13
+    xor rax, rdx
+    mov rdx, rax
+    shr rdx, 7
+    xor rax, rdx
+    mov rdx, rax
+    shl rdx, 17
+    xor rax, rdx
+    mov [rel prop_seed], rax
+    ret
+
+; edi = n -> eax = a random number below n
+prop_below:
+    push rdi
+    call prop_random
+    pop rcx
+    xor edx, edx
+    div rcx
+    mov eax, edx
+    ret
+
+section .rodata
+alignb 8
+prop_seeds:     dq 0x9E3779B97F4A7C15, 0x0123456789ABCDEF, 0xD1B54A32D192ED03, 0x8CB92BA72F3D8DD7
+
 section .bss
+alignb 16
+prop_objects:   resq PROP_HANDLES       ; what the handles stand for
+prop_handles:   resd PROP_HANDLES
+prop_live:      resb PROP_HANDLES
+prop_seed:      resq 1
 alignb 16
 store:      resb 65536
 arena:      resq 4
