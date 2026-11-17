@@ -668,6 +668,37 @@ window_configure:
 %endmacro
     LIMIT esi, min_w, max_w             ; inside its limits (WIN-08)
     LIMIT edx, min_h, max_h
+    mov ecx, [rbx + Window.aspect_w]    ; its shape: the largest of it inside
+    test ecx, ecx
+    jz .shaped
+    test esi, esi
+    jz .shaped
+    test edx, edx
+    jz .shaped
+    test dword [rbx + Window.state], WINDOW_MAXIMIZED | WINDOW_FULLSCREEN
+    jnz .shaped
+    mov r10d, edx                       ; height
+    mov r11d, [rbx + Window.aspect_h]
+    mov eax, esi                        ; width x aspect_h vs height x aspect_w
+    imul rax, r11
+    mov r8d, r10d
+    imul r8, rcx
+    cmp rax, r8
+    jbe .tall
+    mov eax, r10d                       ; too wide: width from the height
+    imul rax, rcx
+    xor edx, edx
+    div r11d
+    mov esi, eax
+    mov edx, r10d
+    jmp .shaped
+.tall:
+    mov eax, esi                        ; too tall: height from the width
+    imul rax, r11
+    xor edx, edx
+    div ecx
+    mov edx, eax
+.shaped:
     mov r8d, esi
     mov r9d, edx
     mov r11d, [rbx + Window.state]
