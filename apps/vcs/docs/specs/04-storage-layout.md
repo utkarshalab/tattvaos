@@ -240,6 +240,10 @@ through the merged index and ownership graph but are not staged again.
 Each newly staged object also carries the nonzero physical envelope locator
 reserved by the allocator, and that locator must exactly match its authenticated
 candidate index record before the backend receives the object.
+Publication validates the complete 128-byte envelope before storage opens:
+format fields, object type and ID, canonical payload length, extent count and
+first-extent rules, creation transaction, reserved bytes and envelope checksum
+must all agree with the staged object and candidate generation.
 The staged ownership batch is also in canonical catalog order with no duplicate
 edges. Every newly staged object has an exact transaction-pin edge whose owner
 key is the current transaction's canonical identity and whose child type matches
