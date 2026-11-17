@@ -67,6 +67,7 @@ extern titlebar_rect
 extern titlebar_render
 extern switcher_render
 extern menu_render
+extern osd_render
 extern surface_tell_preferred
 
 %define COMPOSITOR_BG_COLOR COMPOSITOR_BG  ; inc/struct_offsets.inc
@@ -815,6 +816,9 @@ compositor_composite_output:
     mov rdi, rsp                        ; a menu over that
     lea rsi, [rsp + L_CLIP]
     call menu_render
+    mov rdi, rsp                        ; volume or brightness over that
+    lea rsi, [rsp + L_CLIP]
+    call osd_render
     mov rdi, rsp                        ; a drag's icon over that
     lea rsi, [rsp + L_CLIP]
     mov rdx, [rbx + Compositor.server]
