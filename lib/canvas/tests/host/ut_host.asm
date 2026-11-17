@@ -523,6 +523,24 @@ ut_app_list:
     mov rax, -(ENOSYS)
     ret
 
+; ut_entropy_siphash_key for host tests: 32 bytes from the time stamp
+; counter, enough to make tokens differ
+global ut_entropy_siphash_key
+ut_entropy_siphash_key:
+    mov ecx, 4
+.word:
+    rdtsc
+    shl rdx, 32
+    or rax, rdx
+    mov rsi, 0x9E3779B97F4A7C15
+    imul rax, rsi
+    mov [rdi], rax
+    add rdi, 8
+    dec ecx
+    jnz .word
+    xor eax, eax
+    ret
+
 ; ut_power_suspend for host tests: back at once
 global ut_power_suspend
 ut_power_suspend:
