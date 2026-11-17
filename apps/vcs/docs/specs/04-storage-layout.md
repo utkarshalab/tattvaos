@@ -237,6 +237,9 @@ The staged-object list is strictly sorted by complete object ID with no
 duplicates. Each staged object's index record carries the transaction sequence
 being published. Objects deduplicated from an older generation remain reachable
 through the merged index and ownership graph but are not staged again.
+Each newly staged object also carries the nonzero physical envelope locator
+reserved by the allocator, and that locator must exactly match its authenticated
+candidate index record before the backend receives the object.
 The staged ownership batch is also in canonical catalog order with no duplicate
 edges. Every newly staged object has an exact transaction-pin edge whose owner
 key is the current transaction's canonical identity and whose child type matches
