@@ -141,6 +141,11 @@ sw_cursor_render:
     test rcx, rcx
     jz .shape
     mov rax, [rcx + Surface.cursor_shape]
+    cmp rax, CURSOR_CUSTOM
+    jne .built_in
+    cmp qword [rcx + Surface.cursor_image], 0
+    jne .custom                         ; the client's own image
+.built_in:
     cmp rax, SHAPE_COUNT
     jb .shape
     xor eax, eax
@@ -155,21 +160,7 @@ sw_cursor_render:
     mov eax, [r9 + 20]
     add rax, rcx
     mov [rsp + L_FILL], rax
-    xor ecx, ecx                        ; its size here: the output's scale,
-    mov rax, [rbx + FrameCtx.output]    ; rounded, 1x or 2x
-    test rax, rax
-    jz .sized
-    cmp dword [rbx + FrameCtx.px_scale], 0
-    jne .scale                          ; in its pixels: at its scale
-    cmp qword [rax + Output.pixel_fb], 0
-    jne .sized                          ; drawn logical, scaled after
-.scale:
-    mov rax, [rax + Output.scale]
-    add rax, 0x8000
-    shr rax, 16
-    cmp rax, 2
-    jb .sized
-    mov ecx, 1
+    call cursor_shift                   ; its size here: 1x or 2x
 .sized:
     mov [rsp + L_SHIFT], ecx
     mov eax, [r9 + 8]                   ; its top left, from the tip
@@ -238,6 +229,97 @@ sw_cursor_render:
     xor eax, eax
     add rsp, 72
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+    ; A client's own image (PTR-16), rcx = its surface: at the output's
+    ; scale, rounded, its tip at the pointer; pixels mostly see-through left
+    ; out
+.custom:
+    mov [rsp + L_INK], rcx
+    call cursor_shift
+    mov [rsp + L_SHIFT], ecx
+    mov r9, [rsp + L_INK]
+    mov eax, [r9 + Surface.cursor_hot_x]
+    shl eax, cl
+    sub r12d, eax
+    mov eax, [r9 + Surface.cursor_hot_y]
+    shl eax, cl
+    sub r13d, eax
+    mov [rsp + L_RECT], r12d
+    mov [rsp + L_RECT + 4], r13d
+    mov eax, [r9 + Surface.cursor_w]
+    shl eax, cl
+    mov [rsp + L_RECT + 8], eax
+    mov eax, [r9 + Surface.cursor_h]
+    shl eax, cl
+    mov [rsp + L_RECT + 12], eax
+    lea rdi, [rsp + L_SHOWN]
+    mov rdx, r15
+    lea rsi, [rsp + L_RECT]
+    call rect_intersect
+    test rax, rax
+    jnz .done
+    mov rax, [rsp + L_INK]
+    mov rax, [rax + Surface.cursor_image]
+    mov [rsp + L_FILL], rax
+    mov r14d, [rsp + L_SHOWN + 4]
+.custom_row:
+    mov eax, [rsp + L_SHOWN + 4]
+    add eax, [rsp + L_SHOWN + 12]
+    cmp r14d, eax
+    jge .done
+    mov eax, r14d                       ; its row of the image
+    sub eax, r13d
+    mov ecx, [rsp + L_SHIFT]
+    shr eax, cl
+    imul eax, eax, CURSOR_MAX * 4
+    mov r8, [rsp + L_FILL]
+    add r8, rax
+    movsxd r10, r14d
+    imul r10, [rbx + FrameCtx.stride]
+    add r10, [rbx + FrameCtx.framebuffer]
+    mov r15d, [rsp + L_SHOWN]
+.custom_column:
+    mov eax, [rsp + L_SHOWN]
+    add eax, [rsp + L_SHOWN + 8]
+    cmp r15d, eax
+    jge .custom_next
+    mov eax, r15d
+    sub eax, r12d
+    mov ecx, [rsp + L_SHIFT]
+    shr eax, cl
+    mov edx, [r8 + rax * 4]
+    cmp edx, 0x80000000
+    jb .see_through
+    or edx, 0xFF000000
+    movsxd rax, r15d
+    mov [r10 + rax * 4], edx
+.see_through:
+    inc r15d
+    jmp .custom_column
+.custom_next:
+    inc r14d
+    jmp .custom_row
+
+; The pointer's size on a frame: 1 at 2x (the output's scale, rounded), 0
+; at 1x. rbx = frame context -> ecx; rax used
+cursor_shift:
+    xor ecx, ecx
+    mov rax, [rbx + FrameCtx.output]
+    test rax, rax
+    jz .out
+    cmp dword [rbx + FrameCtx.px_scale], 0
+    jne .scale                          ; in its pixels: at its scale
+    cmp qword [rax + Output.pixel_fb], 0
+    jne .out                            ; drawn logical, scaled after
+.scale:
+    mov rax, [rax + Output.scale]
+    add rax, 0x8000
+    shr rax, 16
+    cmp rax, 2
+    jb .out
+    mov ecx, 1
+.out:
+    ret
 
 ; rdi = server, esi = x, edx = y: the box round a pointer there redrawn
 damage_box:
