@@ -199,6 +199,10 @@ no unaudited counter is authoritative. Publication adds all new edges and root
 changes in the same transaction as new objects. Explicit reclamation may remove
 an object only after the transaction proves it has no inbound edge, no active
 reader pin and no pending transaction/migration pin. There is no GC.
+The complete catalog is authenticated with mutable-root kind 2 and the candidate
+repository generation. Publication verifies that root, binds it to the
+superblock ownership-root field and requires every staged edge to exist in the
+authenticated generation before storage begins.
 
 #### Mutable catalog paging
 
@@ -255,7 +259,8 @@ supplies locators in strict ascending order so uniqueness preflight stays linear
 The staged ownership batch is also in canonical catalog order with no duplicate
 edges. Every newly staged object has an exact transaction-pin edge whose owner
 key is the current transaction's canonical identity and whose child type matches
-the object. Publication proves complete pin coverage before opening storage.
+the object. Publication proves complete pin coverage and staged-edge membership
+in the authenticated ownership root before opening storage.
 
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
