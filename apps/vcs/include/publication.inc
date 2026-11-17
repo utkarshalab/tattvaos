@@ -19,6 +19,7 @@ struc vcs_publish_object
     .payload resq 1
     .length  resq 1
     .envelope resq 1 ; authenticated allocator-provided physical locator
+    .envelope_header resq 1 ; complete 128-byte physical envelope
 endstruc
 
 ; All callbacks return a VCS status except poison, whose result is ignored.
