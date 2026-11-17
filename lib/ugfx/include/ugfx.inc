@@ -594,4 +594,24 @@ extern panic_null_ptr
 %define UgfxScale_h             60      ; i32
 %define UgfxScale_SIZE          64
 
+; A nine-patch (core/ninepatch.asm, G2D-11): the source cut by four insets
+; into nine cells, drawn into the rectangle x, y, w, h of the destination,
+; the corners at their own size, the edges and middle stretched. 32-bit
+; pixels; strides in bytes; the rectangle kept inside the destination.
+%define UgfxNine_dst            0       ; u64 the destination's first pixel
+%define UgfxNine_dst_stride     8       ; u64
+%define UgfxNine_x              16      ; u32 the rectangle
+%define UgfxNine_y              20      ; u32
+%define UgfxNine_w              24      ; u32
+%define UgfxNine_h              28      ; u32
+%define UgfxNine_src            32      ; u64 the source's first pixel
+%define UgfxNine_src_stride     40      ; u64
+%define UgfxNine_src_w          48      ; u32
+%define UgfxNine_src_h          52      ; u32
+%define UgfxNine_left           56      ; u32 the insets, in source pixels
+%define UgfxNine_top            60      ; u32
+%define UgfxNine_right          64      ; u32
+%define UgfxNine_bottom         68      ; u32
+%define UgfxNine_SIZE           72
+
 %endif ; __UGFX_INC__
