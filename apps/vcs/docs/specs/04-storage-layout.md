@@ -237,6 +237,9 @@ The staged-object list is strictly sorted by complete object ID with no
 duplicates. Each staged object's index record carries the transaction sequence
 being published. Objects deduplicated from an older generation remain reachable
 through the merged index and ownership graph but are not staged again.
+Before opening storage, publication overflow-checks the sum of every staged
+object's extent count. The backend receives exact object, extent and ownership
+record counts in `begin`, allowing one complete reservation before any write.
 Each newly staged object also carries the nonzero physical envelope locator
 reserved by the allocator, and that locator must exactly match its authenticated
 candidate index record before the backend receives the object.
