@@ -228,6 +228,11 @@ repository generation, consumes the predecessor's `next transaction sequence`,
 and records the following sequence in the candidate. Repository identity and
 immutable format fields must match. Genesis has no predecessor, uses generation
 and transaction sequence one, and records next transaction sequence two.
+For a born repository, the candidate HEAD must resolve to a commit record in
+the candidate's authenticated object-index generation. Every ownership child
+must resolve there with its declared object type, and every immutable-object
+owner key must also resolve there. Namespace owner keys such as refs and
+transactions are instead authenticated by their own catalogs.
 
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
