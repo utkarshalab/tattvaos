@@ -10,7 +10,7 @@ bits 64
 default rel
 
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
-extern vcs_ownership_edge_validate
+extern vcs_ownership_edge_validate,vcs_ownership_catalog_validate
 extern vcs_superblock_verify,vcs_superblock_select_latest
 
 section .text
@@ -179,6 +179,17 @@ vcs_publication_commit:
  add rax,[rbx+vcs_publication.edges]
  jc .space
 .edges_pointer_ok:
+ test r12,r12
+ jz .transaction_owner_valid
+ mov rax,[rbx+vcs_publication.transaction_owner]
+ test rax,rax
+ jz .usage
+ mov rdx,[rax]
+ or rdx,[rax+8]
+ or rdx,[rax+16]
+ or rdx,[rax+24]
+ jz .corrupt
+.transaction_owner_valid:
  mov qword [rsp+32],0
 .validate_objects:
  mov r14,[rsp+32]
@@ -256,6 +267,11 @@ vcs_publication_commit:
  inc qword [rsp+32]
  jmp .validate_objects
 .validate_edges_begin:
+ mov rdi,[rbx+vcs_publication.edges]
+ mov rsi,r13
+ call vcs_ownership_catalog_validate
+ test eax,eax
+ jnz .done
  mov qword [rsp+32],0
 .validate_edges:
  mov r14,[rsp+32]
@@ -304,6 +320,52 @@ vcs_publication_commit:
  inc qword [rsp+32]
  jmp .validate_edges
 .begin:
+ ; Every newly staged object remains owned by this transaction until the root
+ ; publication makes its durable owners authoritative. Both arrays are sorted,
+ ; so one monotonic merge proves exact pin coverage without allocation.
+ mov qword [rsp+88],0               ; staged object index
+ mov qword [rsp+96],0               ; ownership edge index
+.pin_object_loop:
+ mov r8,[rsp+88]
+ cmp r8,r12
+ jae .pins_valid
+ mov rax,r8
+ imul rax,vcs_publish_object_size
+ add rax,[rbx+vcs_publication.objects]
+ mov [rsp+40],rax
+.pin_edge_loop:
+ mov r9,[rsp+96]
+ cmp r9,r13
+ jae .corrupt
+ mov rax,r9
+ imul rax,vcs_ownership_edge_size
+ add rax,[rbx+vcs_publication.edges]
+ mov [rsp+48],rax
+ lea rdi,[rax+vcs_ownership_edge.child_id]
+ mov rsi,[rsp+40]
+ call ids_compare_publication
+ test eax,eax
+ js .pin_advance_edge
+ jg .corrupt
+ mov rax,[rsp+48]
+ cmp dword [rax+vcs_ownership_edge.owner_kind],VCS_OWNER_TRANSACTION
+ jne .pin_advance_edge
+ mov rcx,[rsp+40]
+ mov edx,[rcx+vcs_publish_object.type]
+ cmp edx,[rax+vcs_ownership_edge.child_type]
+ jne .pin_advance_edge
+ lea rdi,[rax+vcs_ownership_edge.owner_key]
+ mov rsi,[rbx+vcs_publication.transaction_owner]
+ call ids_equal_publication
+ test eax,eax
+ jz .pin_advance_edge
+ inc qword [rsp+96]
+ inc qword [rsp+88]
+ jmp .pin_object_loop
+.pin_advance_edge:
+ inc qword [rsp+96]
+ jmp .pin_edge_loop
+.pins_valid:
  mov qword [rbx+vcs_publication.result_phase],VCS_PUBLISH_NONE
  mov rdi,[rbp+vcs_publish_backend.context]
  mov rsi,[rbx+vcs_publication.tx_sequence]
