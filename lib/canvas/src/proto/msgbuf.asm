@@ -201,8 +201,10 @@ msgbuf_write:
 ; msgbuf_read
 ;   Read one message
 ;   IN:  rdi = msgbuf*, rsi = msg_hdr*, rdx = payload_dst, rcx = max_payload
-;   OUT: rax = payload_len, -EAGAIN if empty, -EMSGSIZE if it does not fit
-;        (the message stays in the ring)
+;   OUT: rax = payload_len, -EAGAIN if empty, -EMSGSIZE if it does not fit,
+;        -EPROTO if the ring is not whole: a position outside it, or a header
+;        or payload it does not hold (SEC-06; its writer is the other side).
+;        On an error the message stays in the ring
 ; ---------------------------------------------------------------------------
 global msgbuf_read
 msgbuf_read:
@@ -216,17 +218,30 @@ msgbuf_read:
     ASSERT_PTR r12
 
     mov rcx, [rbx + MsgBuf.read_pos]
-    cmp rcx, [rbx + MsgBuf.write_pos]
+    mov rdx, [rbx + MsgBuf.write_pos]
+    cmp rcx, rdx
     je .empty
+    mov rax, [rbx + MsgBuf.capacity]    ; both inside the ring
+    cmp rcx, rax
+    jae .broken
+    cmp rdx, rax
+    jae .broken
+    mov rdi, rbx
+    call msgbuf_available
+    mov [rsp], rax                      ; what was written
 
     mov rdi, rbx
     mov rsi, r12
     mov edx, MsgHdr_size
+    mov rcx, [rbx + MsgBuf.read_pos]
     mov r8d, MB_OUT_OF_RING
     call mb_copy
     mov r15d, [r12 + MsgHdr.len]
     cmp r15, r14
     ja .too_large
+    lea rdx, [r15 + MsgHdr_size]        ; the header and payload written
+    cmp rdx, [rsp]
+    ja .broken
 
     mov rdi, rbx
     mov rsi, r13
@@ -245,6 +260,9 @@ msgbuf_read:
     jmp .out
 .too_large:
     mov rax, -(EMSGSIZE)
+    jmp .out
+.broken:
+    mov rax, -(EPROTO)
     jmp .out
 
 ; ---------------------------------------------------------------------------
