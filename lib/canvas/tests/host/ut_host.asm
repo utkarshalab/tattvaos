@@ -508,6 +508,21 @@ host_same_name:
     xor eax, eax
     ret
 
+; The power menu's and the launcher's calls for host tests: done at once;
+; no list of apps
+global ut_power_restart
+ut_power_restart:
+global ut_power_off
+ut_power_off:
+global ut_app_launch
+ut_app_launch:
+    xor eax, eax
+    ret
+global ut_app_list
+ut_app_list:
+    mov rax, -(ENOSYS)
+    ret
+
 ; ut_power_suspend for host tests: back at once
 global ut_power_suspend
 ut_power_suspend:
