@@ -21,6 +21,12 @@ extern regions_own
 extern regions_add
 extern regions_subtract
 extern regions_clear
+extern region_init
+extern region_add_rect
+extern region_subtract_rect
+extern region_intersect_rect
+extern region_contains_point
+extern region_clear
 
 %define HEAP_SIZE 65536
 
@@ -46,6 +52,7 @@ test_region_main:
     CASE tr_bad_handle
     CASE tr_other_client
     CASE tr_client_gone
+    CASE tr_properties
     mov eax, ebx
     pop rbx
     ret
@@ -243,7 +250,192 @@ tr_client_gone:
     jne .fail
     PASS
 
+; QA-08: regions against a model. From four seeds, 60 random steps each on
+; a 16x16 grid: add, subtract or intersect a rectangle (anywhere from -2,
+; up to 8 each way, empty too), the region and the grid of what it should
+; hold cleared every 20; after every step each of the 256 points is in the
+; region exactly when the grid says so
+%define GRID        16
+%define PROP_STEPS  60
+%define PROP_STORE  (1024 * 1024)
+tr_properties:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    xor r14d, r14d                      ; the seed
+.seed:
+    lea rax, [rel prop_seeds]
+    mov rax, [rax + r14 * 8]
+    mov [rel prop_seed], rax
+    lea rdi, [rel prop_arena]
+    lea rsi, [rel prop_store]
+    mov edx, PROP_STORE
+    call arena_init
+    lea rdi, [rel prop_arena]
+    call region_init
+    test rax, rax
+    jz .fail
+    mov rbx, rax
+    xor r12d, r12d                      ; the step
+.step:
+    mov eax, r12d
+    xor edx, edx
+    mov ecx, 20
+    div ecx
+    test edx, edx
+    jnz .rect
+    mov rdi, rbx                        ; every 20: both cleared
+    call region_clear
+    lea rdi, [rel prop_grid]
+    xor eax, eax
+    mov ecx, GRID * GRID
+    rep stosb
+.rect:
+    mov edi, GRID
+    call prop_below
+    sub eax, 2
+    mov [rel prop_rect], eax
+    mov edi, GRID
+    call prop_below
+    sub eax, 2
+    mov [rel prop_rect + 4], eax
+    mov edi, 9
+    call prop_below
+    mov [rel prop_rect + 8], eax
+    mov edi, 9
+    call prop_below
+    mov [rel prop_rect + 12], eax
+    mov edi, 3
+    call prop_below
+    mov r13d, eax                       ; 0 add, 1 subtract, 2 intersect
+    mov rdi, rbx
+    lea rsi, [rel prop_rect]
+    cmp r13d, 1
+    je .subtract
+    ja .intersect
+    call region_add_rect
+    jmp .model
+.subtract:
+    call region_subtract_rect
+    jmp .model
+.intersect:
+    call region_intersect_rect
+.model:
+    test rax, rax
+    js .fail
+    xor ecx, ecx                        ; the grid, the same way
+.cell:
+    mov eax, ecx
+    and eax, GRID - 1                   ; x
+    mov edx, ecx
+    shr edx, 4                          ; y
+    xor r8d, r8d                        ; inside the rectangle?
+    cmp eax, [rel prop_rect]
+    jl .placed
+    cmp edx, [rel prop_rect + 4]
+    jl .placed
+    mov r9d, [rel prop_rect]
+    add r9d, [rel prop_rect + 8]
+    cmp eax, r9d
+    jge .placed
+    mov r9d, [rel prop_rect + 4]
+    add r9d, [rel prop_rect + 12]
+    cmp edx, r9d
+    jge .placed
+    mov r8d, 1
+.placed:
+    lea r9, [rel prop_grid]
+    cmp r13d, 1
+    je .cleared
+    ja .kept
+    test r8d, r8d                       ; add: in it, set
+    jz .next_cell
+    mov byte [r9 + rcx], 1
+    jmp .next_cell
+.cleared:
+    test r8d, r8d                       ; subtract: in it, clear
+    jz .next_cell
+    mov byte [r9 + rcx], 0
+    jmp .next_cell
+.kept:
+    test r8d, r8d                       ; intersect: outside it, clear
+    jnz .next_cell
+    mov byte [r9 + rcx], 0
+.next_cell:
+    inc ecx
+    cmp ecx, GRID * GRID
+    jb .cell
+    xor r13d, r13d                      ; every point agrees
+.check:
+    mov rdi, rbx
+    mov esi, r13d
+    and esi, GRID - 1
+    mov edx, r13d
+    shr edx, 4
+    call region_contains_point
+    lea rcx, [rel prop_grid]
+    movzx ecx, byte [rcx + r13]
+    cmp eax, ecx
+    jne .fail
+    inc r13d
+    cmp r13d, GRID * GRID
+    jb .check
+    inc r12d
+    cmp r12d, PROP_STEPS
+    jb .step
+    inc r14d
+    cmp r14d, 4
+    jb .seed
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; -> rax = the next random number (xorshift64), from prop_seed
+prop_random:
+    mov rax, [rel prop_seed]
+    mov rdx, rax
+    shl rdx, 13
+    xor rax, rdx
+    mov rdx, rax
+    shr rdx, 7
+    xor rax, rdx
+    mov rdx, rax
+    shl rdx, 17
+    xor rax, rdx
+    mov [rel prop_seed], rax
+    ret
+
+; edi = n -> eax = a random number below n
+prop_below:
+    push rdi
+    call prop_random
+    pop rcx
+    xor edx, edx
+    div rcx
+    mov eax, edx
+    ret
+
+section .rodata
+alignb 8
+prop_seeds:     dq 0x9E3779B97F4A7C15, 0x0123456789ABCDEF, 0xD1B54A32D192ED03, 0x8CB92BA72F3D8DD7
+
 section .bss
+alignb 16
+prop_store:     resb PROP_STORE
+prop_arena:     resb Arena_size
+prop_seed:      resq 1
+prop_rect:      resd 4
+prop_grid:      resb GRID * GRID
 alignb 16
 server:     resb Server_size
 arena:      resb Arena_size
