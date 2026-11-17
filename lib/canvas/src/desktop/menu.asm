@@ -22,6 +22,9 @@
 ; Server.launches counts the starts, Server.launch_last is the last one's
 ; place in the list, plus 1.
 ;
+; The "not responding" dialog (REL-14, governance/hang): what it is about,
+; then Wait and Force quit; Server.force_quits counts the force quits.
+;
 ; The kernel's calls are weak imports: without them Sleep only locks,
 ; Restart and Shut down do nothing, and the launcher lists what was added.
 
@@ -44,6 +47,9 @@ extern ut_power_restart
 extern ut_power_off
 extern ut_app_list
 extern ut_app_launch
+extern client_get
+extern client_disconnect
+extern hang_wait
 
 %define KEY_ESC         1               ; keycodes
 %define KEY_BACKSPACE   14
@@ -54,6 +60,8 @@ extern ut_app_launch
 %define MENU_NONE       0
 %define MENU_POWER      1
 %define MENU_LAUNCHER   2
+%define MENU_HUNG       3
+%define HUNG_ROWS       2               ; Wait, Force quit
 %define POWER_ROWS      5
 %define LAUNCHER_ROWS   8               ; matches shown, under the search
 %define MENU_W          240
@@ -88,6 +96,36 @@ global launcher_open
 launcher_open:
     mov esi, MENU_LAUNCHER
     jmp open
+
+; ---------------------------------------------------------------------------
+; hung_menu_open
+;   "Not responding" for a client (REL-14): Wait or Force quit
+;   IN:  rdi = server*, rsi = the client's id
+;   OUT: rax = 0, -EBUSY as power_menu_open
+; ---------------------------------------------------------------------------
+global hung_menu_open
+hung_menu_open:
+    cmp dword [rel kind], MENU_NONE
+    jne .busy
+    mov [rel hung_client], rsi
+    mov esi, MENU_HUNG
+    jmp open
+.busy:
+    mov rax, -(EBUSY)
+    ret
+
+; ---------------------------------------------------------------------------
+; menu_hung_client
+;   OUT: rax = the client the "not responding" dialog is open for, 0 none
+; ---------------------------------------------------------------------------
+global menu_hung_client
+menu_hung_client:
+    xor eax, eax
+    cmp dword [rel kind], MENU_HUNG
+    jne .out
+    mov rax, [rel hung_client]
+.out:
+    ret
 
 ; ---------------------------------------------------------------------------
 ; menu_close
@@ -284,6 +322,8 @@ menu_render:
     mov dword [rsp + 12], ROW_H
     cmp dword [rel kind], MENU_POWER
     je .power_row
+    cmp dword [rel kind], MENU_HUNG
+    je .hung_row
     test r13d, r13d                     ; the launcher: the search first
     jnz .app_row
     mov rdi, rbx
@@ -318,6 +358,30 @@ menu_render:
     lea rcx, [rcx + Server.apps + rax]
     movzx r8d, byte [rcx]
     inc rcx
+    jmp .text
+.hung_row:
+    test r13d, r13d                     ; what it is about, then the choices
+    jnz .hung_choice
+    mov rdi, rbx
+    mov rsi, r12
+    mov rdx, rsp
+    mov ecx, FIELD_COLOR
+    call contrast
+    cmovnz ecx, [rel hc_box]
+    call fill
+    lea rcx, [rel hung_label]
+    mov r8d, hung_label_len
+    mov r9d, TEXT_COLOR
+    call contrast
+    cmovnz r9d, [rel hc_text]
+    jmp .text
+.hung_choice:
+    lea eax, [r13 - 1]
+    call row_colour
+    lea rax, [rel hung_labels]
+    mov rcx, [rax + r13 * 8 - 8]
+    lea rax, [rel hung_lengths]
+    movzx r8d, byte [rax + r13 - 1]
     jmp .text
 .power_row:
     mov eax, r13d
@@ -506,6 +570,8 @@ act:
     mov r12d, [rel selected]
     cmp dword [rel kind], MENU_LAUNCHER
     je .launch
+    cmp dword [rel kind], MENU_HUNG
+    je .hung
     call menu_close
     lea eax, [r12 + 1]
     mov [rbx + Server.power_last], rax
@@ -529,6 +595,22 @@ act:
 .off:
     call ut_power_off
     jmp .out
+.hung:
+    call menu_close
+    mov rdi, rbx
+    mov rsi, [rel hung_client]
+    test r12d, r12d
+    jnz .force_quit
+    call client_get                     ; Wait: another while
+    test rax, rax
+    jz .out
+    mov rdi, rax
+    call hang_wait
+    jmp .out
+.force_quit:
+    inc qword [rbx + Server.force_quits]
+    call client_disconnect
+    jmp .out
 .launch:
     cmp r12d, [rel match_count]
     jae .out                            ; nothing matches: stays open
@@ -551,6 +633,9 @@ rows_selectable:
     mov eax, POWER_ROWS
     cmp dword [rel kind], MENU_POWER
     je .out
+    mov eax, HUNG_ROWS
+    cmp dword [rel kind], MENU_HUNG
+    je .out
     mov eax, [rel match_count]
 .out:
     ret
@@ -560,6 +645,9 @@ rows_selectable:
 rows_shown:
     mov eax, POWER_ROWS
     cmp dword [rel kind], MENU_POWER
+    je .out
+    mov eax, HUNG_ROWS + 1
+    cmp dword [rel kind], MENU_HUNG
     je .out
     mov eax, LAUNCHER_ROWS + 1
 .out:
@@ -722,6 +810,12 @@ sleep_label:        db "Sleep"
 restart_label:      db "Restart"
 off_label:          db "Shut down"
 end_labels:
+hung_label:         db "Not responding"
+hung_label_len      equ $ - hung_label
+wait_label:         db "Wait"
+quit_label:         db "Force quit"
+end_hung:
+hung_lengths:       db quit_label - wait_label, end_hung - quit_label
 power_lengths:      db switch_label - lock_label, sleep_label - switch_label
                     db restart_label - sleep_label, off_label - restart_label
                     db end_labels - off_label
@@ -731,12 +825,14 @@ alignb 8
 modifier_keys:      dd 29, 42, 54, 56, 97, 100, 125, 126, 58, 69, 70
 MODIFIER_KEYS       equ ($ - modifier_keys) / 4
 power_labels:       dq lock_label, switch_label, sleep_label, restart_label, off_label
+hung_labels:        dq wait_label, quit_label
 global menu_version
 menu_version:       dq 0x010000
 
 section .bss
 alignb 8
 server_p:       resq 1
+hung_client:    resq 1                  ; the "not responding" dialog's
 output:         resq 1                  ; where the box is drawn
 box:            resd 4                  ; x, y, width, height
 kind:           resd 1                  ; MENU_*
