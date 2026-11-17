@@ -989,6 +989,11 @@ window_may_take_keyboard:
     mov r8, [rdx + Surface.client]
     cmp r8, [rsi + Surface.client]
     je .out                             ; the same client's
+    cmp dword [rdx + Surface.secure_input], 0
+    je .open
+    xor eax, eax                        ; a password field has it (SEC-08)
+    jmp .out
+.open:
     mov r8, [rbx + InputSeat.last_input]
     test r8, r8
     jz .out                             ; nothing pressed yet
