@@ -43,6 +43,7 @@ extern magnify_focus
 extern window_move_to_workspace
 extern server_set_pointer
 extern menu_open_kind
+extern compositor_move_to_output
 extern launcher_add_app
 extern server_set_button_map
 extern server_set_pen_curve
@@ -193,6 +194,9 @@ test_window_suite:
     CASE tw_offscreen, CAP_SHELL
     CASE tw_warp, CAP_SHELL
     CASE tw_touch_pointer, CAP_SHELL | CAP_POINTER | NO_INPUT
+    CASE tw_preferred, CAP_SHELL
+    CASE tw_activation, CAP_SHELL
+    CASE tw_hung, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -4476,6 +4480,198 @@ tw_touch_pointer:
     jne .fail
     cmp dword [rel ans + 16], 0
     jne .fail
+    PASS
+
+; the next preferred event: surface variable %1, scale %2, transform %3
+%macro PREFERRED_IS 3
+    FIND CWP_OBJ_SURFACE, SURFACE_EV_PREFERRED
+    mov eax, [rel %1]
+    cmp [rel ans], eax
+    jne .fail
+    cmp dword [rel ans + 8], %2
+    jne .fail
+    cmp dword [rel ans + 12], %3
+    jne .fail
+%endmacro
+
+; SUR-13: a new surface hears 120 and no turn; its output at 1.5 makes it
+; 180, told once; moved to a second output at 1, 120 again with that
+; output's id
+tw_preferred:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    PREFERRED_IS surface_a, 120, 0
+    mov eax, [rel ans + 4]
+    mov [rel output_id_a], eax
+    mov rdi, [rel server + Server.outputs]
+    mov esi, 3
+    mov edx, 2
+    call scale_fractional_compute
+    PREFERRED_IS surface_a, 180, 0
+    mov rdi, [rel server + Server.outputs]  ; the same again: nothing new
+    mov esi, 3
+    mov edx, 2
+    call scale_fractional_compute
+    mov edi, CWP_OBJ_SURFACE
+    mov esi, SURFACE_EV_PREFERRED
+    call find_event
+    test eax, eax
+    jnz .fail
+    lea rdi, [rel server]
+    mov esi, 64
+    mov edx, 48
+    call server_add_output
+    test rax, rax
+    jz .fail
+    mov [rel output_b], rax
+    mov edi, [rel surface_a]
+    call surface_of
+    lea rdi, [rel server]
+    mov rsi, rax
+    mov rdx, [rel output_b]
+    call compositor_move_to_output
+    PREFERRED_IS surface_a, 120, 0
+    mov eax, [rel ans + 4]
+    cmp eax, [rel output_id_a]
+    je .fail                            ; the second output's id
+    PASS
+
+; cw_toplevel.get_activation_token(surface variable %1) into rax
+%macro TOKEN_OF 1
+    mov eax, [rel %1]
+    mov [rel req], eax
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_GET_ACTIVATION_TOKEN, 4
+    call poll
+    call next_reply
+    cmp rax, 8
+    jne .fail
+    mov rax, [rel ans]
+%endmacro
+; cw_toplevel.activate(surface variable %1, the token at %2)
+%macro ACTIVATE 2
+    mov eax, [rel %1]
+    mov [rel req], eax
+    mov rax, %2
+    mov [rel req + 4], rax
+    SEND CWP_OBJ_TOPLEVEL, TOPLEVEL_ACTIVATE, 12
+    call poll
+%endmacro
+
+; PRO-18: A, typing, gets a token; B's window shown meanwhile does not take
+; the keyboard; B with a made-up token cannot, with A's it does; the token
+; is spent: A cannot use it again; A, without the keyboard, gets none
+tw_activation:
+    push rbx
+    push r12
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    INJECT INPUT_KEY, 30, 1
+    INJECT INPUT_KEY, 30, 0
+    call poll
+    call drain
+    TOKEN_OF surface_a
+    test rax, rax
+    jz .fail
+    mov rbx, rax
+    lea rdi, [rel server]               ; B
+    lea rsi, [rel pair_b]
+    mov edx, CAP_SHELL | CAP_POINTER | CAP_KEYBOARD
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    POINTER 40, 30
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    AS pair
+    KEYBOARD_ON surface_a
+    AS pair_b
+    lea r12, [rbx + 1]                  ; not the token
+    ACTIVATE surface_b, r12
+    AS pair
+    KEYBOARD_ON surface_a
+    AS pair_b
+    ACTIVATE surface_b, rbx
+    AS pair
+    KEYBOARD_ON surface_b
+    ACTIVATE surface_a, rbx             ; spent
+    KEYBOARD_ON surface_b
+    call drain
+    TOKEN_OF surface_a                  ; A no longer has the keyboard
+    test rax, rax
+    jnz .fail
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; rax = window A's client
+%macro CLIENT_A 0
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rax, [rax + Surface.client]
+%endmacro
+
+; REL-14: a key in A's window pings its client; answered, nothing more. The
+; next ping unanswered for its time: "not responding"; Wait gives it more;
+; again unanswered, Force quit closes it, its window gone
+tw_hung:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    TAP 30
+    FIND CWP_OBJ_DISPLAY, DISPLAY_EV_PING
+    mov rax, [rel ans]
+    mov [rel req], rax
+    SEND CWP_OBJ_DISPLAY, DISPLAY_PONG, 8
+    call poll
+    CLIENT_A
+    cmp qword [rax + Client.hang_since], 0
+    jne .fail
+    TAP 30
+    FIND CWP_OBJ_DISPLAY, DISPLAY_EV_PING
+    call poll                           ; not answered yet, but not late
+    MENU_IS 0
+    CLIENT_A                            ; long ago, as far as it knows
+    mov qword [rax + Client.hang_since], 1
+    call poll
+    MENU_IS 3
+    TAP 28                              ; Wait
+    MENU_IS 0
+    CLIENT_A
+    cmp qword [rax + Client.hung], 0
+    jne .fail
+    CLIENT_A
+    mov qword [rax + Client.hang_since], 1
+    call poll
+    MENU_IS 3
+    TAP 108
+    TAP 28                              ; Force quit
+    MENU_IS 0
+    SERVER_IS force_quits, 1
+    mov rdi, [rel server + Server.surface_table]
+    mov esi, [rel surface_a]
+    call handle_resolve
+    test rax, rax
+    jnz .fail
     PASS
 
 ; REL-16: a window at the far corner of a second output, the output
