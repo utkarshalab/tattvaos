@@ -1765,6 +1765,8 @@ struc Surface
     .cursor_shape:            resq 1    ; cw_pointer.shape while the pointer is over it
     .buffer_scale:            resd 1    ; its buffer's scale in 120ths, 0: 120
     .pointer_relative:        resd 1    ; 1: raw motion while the pointer is over it
+    .secure_input:            resd 1    ; 1: a password field, the keyboard kept
+    resb 4
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
