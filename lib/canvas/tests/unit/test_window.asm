@@ -203,6 +203,7 @@ test_window_suite:
     CASE tw_viewport, CAP_SHELL
     CASE tw_aspect, CAP_SHELL
     CASE tw_custom_cursor, CAP_SHELL
+    CASE tw_osd, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -4973,6 +4974,44 @@ tw_viewport:
     VIEWPORT 12, 0, 8, 12, 0, 0         ; past the buffer's right edge
     call poll
     SEES 10, 10, 0xFF202030
+    PASS
+
+; DSK-08: volume up from 50 is 55, down twice 45, the window hearing none
+; of it, the volume shown; mute and unmute; muted, louder unmutes (50);
+; brightness down from 100 is 95
+; and shown instead; up past 100 stays 100; its time up, nothing shown
+tw_osd:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    TAP 115
+    SERVER_IS volume, 55
+    SERVER_IS osd_kind, OSD_VOLUME
+    TAP 114
+    TAP 114
+    SERVER_IS volume, 45
+    NO_KEYS
+    TAP 113
+    SERVER_IS muted, 1
+    TAP 113
+    SERVER_IS muted, 0
+    TAP 113                             ; muted, then louder: not muted
+    TAP 115
+    SERVER_IS muted, 0
+    SERVER_IS volume, 50
+    TAP 224
+    SERVER_IS brightness, 95
+    SERVER_IS osd_kind, OSD_BRIGHTNESS
+    TAP 225
+    TAP 225
+    SERVER_IS brightness, 100
+    mov qword [rel server + Server.osd_until], 1
+    call poll
+    SERVER_IS osd_kind, 0
     PASS
 
 ; REL-16: a window at the far corner of a second output, the output
