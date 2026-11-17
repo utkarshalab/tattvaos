@@ -27,5 +27,6 @@ checks authenticated predecessor transitions and index membership, replay and
 rollback rejection, HEAD commit membership, ownership endpoint closure, root
 tampering, canonical unique staged sets, transaction binding, abort, poison,
 authenticated envelope-locator binding, canonical ownership batches, complete
-physical-envelope validation, transaction-pin coverage, callback order and
-preflight atomicity, plus the remaining module and differential suites.
+physical-envelope and extent-chain validation, transaction-pin coverage,
+callback order and preflight atomicity, plus the remaining module and
+differential suites.
