@@ -16,6 +16,7 @@ extern sha256_hash
 
 section .rodata
 publication_envelope_magic: db 'UVCSOBJ3'
+publication_extent_magic:   db 'UVCSEXT1'
 
 section .text
 global vcs_publication_commit
@@ -306,6 +307,10 @@ vcs_publication_commit:
  call ids_equal_publication
  test eax,eax
  jz .corrupt
+ mov rdi,[rsp+40]
+ call validate_extents_publication
+ test eax,eax
+ jnz .done
  ; Every staged immutable object must already exist in the authenticated index
  ; generation with the same canonical type and length.
  mov rax,[rbx+vcs_publication.index_root]
@@ -562,6 +567,160 @@ ids_equal_publication:
  or rax,rcx
  setz al
  movzx eax,al
+ ret
+
+; RDI=vcs_publish_object. Validate every allocator locator and staged 4 KiB
+; extent against the already authenticated canonical payload and envelope.
+validate_extents_publication:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,8
+ mov rbx,rdi
+ mov rbp,[rbx+vcs_publish_object.length]
+ mov r14,[rbx+vcs_publish_object.extent_count]
+ mov rax,rbp
+ add rax,VCS_OBJECT_EXTENT_PAYLOAD-1
+ jc .extent_space
+ xor edx,edx
+ mov ecx,VCS_OBJECT_EXTENT_PAYLOAD
+ div rcx
+ cmp r14,rax
+ jne .extent_corrupt
+ test rbp,rbp
+ jz .extent_empty
+ mov r12,[rbx+vcs_publish_object.extents]
+ mov r13,[rbx+vcs_publish_object.locators]
+ test r12,r12
+ jz .extent_usage
+ test r13,r13
+ jz .extent_usage
+ mov rax,r14
+ mov ecx,VCS_OBJECT_EXTENT_BYTES
+ mul rcx
+ test rdx,rdx
+ jnz .extent_space
+ add rax,r12
+ jc .extent_space
+ mov rax,r14
+ mov ecx,8
+ mul rcx
+ test rdx,rdx
+ jnz .extent_space
+ add rax,r13
+ jc .extent_space
+ mov rax,[r13]
+ test rax,rax
+ jz .extent_corrupt
+ mov rcx,[rbx+vcs_publish_object.envelope_header]
+ cmp [rcx+72],rax
+ jne .extent_corrupt
+ xor r14d,r14d
+ xor r15d,r15d
+.extent_loop:
+ cmp r14,[rbx+vcs_publish_object.extent_count]
+ jae .extent_complete
+ mov rax,[r13+r14*8]
+ test rax,rax
+ jz .extent_corrupt
+ test r14,r14
+ jz .extent_unique
+ cmp rax,[r13+r14*8-8]
+ jbe .extent_corrupt
+.extent_unique:
+ mov rax,r14
+ shl rax,12
+ lea r11,[r12+rax]
+ mov rax,[publication_extent_magic]
+ cmp [r11],rax
+ jne .extent_corrupt
+ cmp word [r11+8],1
+ jne .extent_corrupt
+ lea rax,[r14+1]
+ cmp rax,[rbx+vcs_publish_object.extent_count]
+ sete dl
+ movzx edx,dl
+ cmp word [r11+10],dx
+ jne .extent_corrupt
+ mov rax,rbp
+ sub rax,r15
+ cmp rax,VCS_OBJECT_EXTENT_PAYLOAD
+ jbe .extent_size_ready
+ mov eax,VCS_OBJECT_EXTENT_PAYLOAD
+.extent_size_ready:
+ cmp [r11+12],eax
+ jne .extent_corrupt
+ lea rdi,[rbx+vcs_publish_object.id]
+ lea rsi,[r11+16]
+ call ids_equal_publication
+ test eax,eax
+ jz .extent_corrupt
+ cmp [r11+48],r14
+ jne .extent_corrupt
+ lea rax,[r14+1]
+ cmp rax,[rbx+vcs_publish_object.extent_count]
+ jae .extent_final_link
+ mov rax,[r13+rax*8]
+ test rax,rax
+ jz .extent_corrupt
+ cmp [r11+56],rax
+ jne .extent_corrupt
+ jmp .extent_payload
+.extent_final_link:
+ cmp qword [r11+56],0
+ jne .extent_corrupt
+.extent_payload:
+ mov ecx,[r11+12]
+ lea rdi,[r11+64]
+ mov rsi,[rbx+vcs_publish_object.payload]
+ add rsi,r15
+ repe cmpsb
+ jne .extent_corrupt
+ mov ecx,VCS_OBJECT_EXTENT_PAYLOAD
+ sub ecx,[r11+12]
+ xor eax,eax
+.extent_padding:
+ test rcx,rcx
+ jz .extent_next
+ cmp byte [rdi],al
+ jne .extent_corrupt
+ inc rdi
+ dec rcx
+ jmp .extent_padding
+.extent_next:
+ mov eax,[r11+12]
+ add r15,rax
+ inc r14
+ jmp .extent_loop
+.extent_complete:
+ cmp r15,rbp
+ jne .extent_corrupt
+ xor eax,eax
+ jmp .extent_done
+.extent_empty:
+ test r14,r14
+ jnz .extent_corrupt
+ xor eax,eax
+ jmp .extent_done
+.extent_space:
+ mov eax,VCS_ERR_NO_MEM
+ jmp .extent_done
+.extent_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .extent_done
+.extent_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.extent_done:
+ add rsp,8
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
  ret
 
 ; RDI/RSI=32-byte IDs. EAX=-1,0,1 for unsigned lexicographic ordering.
