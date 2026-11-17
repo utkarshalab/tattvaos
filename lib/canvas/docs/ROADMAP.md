@@ -164,7 +164,7 @@
 | REL-13 | Long-uptime stability: 30-day soak, no leaks, generation wraparound tested | P3 | |
 | REL-14 | "Not responding" detection with force-quit dialog | P2 | ◐ watchdog ping |
 | REL-15 | Frozen-window snapshot: last frame shown greyed while an app hangs | P3 | |
-| REL-16 | Off-screen window recovery when a monitor disappears | P2 | |
+| REL-16 | Off-screen window recovery when a monitor disappears | P2 | ✓ `shell/window`: an output taken away (unplugged, made a mirror, the lid closed with another on) sends everything on it to one left: a window keeps its place on the output, kept at least 32 pixels on the new one; maximized or fullscreen ones fill it; hidden ones come back there; layers are anchored there; `test_window` (a window in a far corner, a maximized one) |
 
 ## PRO — Protocol and client API
 
@@ -192,7 +192,7 @@
 | PRO-20 | Presentation timing feedback with precise timestamps | P2 | ◐ `server/presentation` |
 | PRO-21 | Tearing-control protocol | P3 | |
 | PRO-22 | Color-management protocol: buffers tagged with color space and HDR metadata | P3 | |
-| PRO-23 | Idle-inhibit protocol | P2 | |
+| PRO-23 | Idle-inhibit protocol | P2 | ✓ `cw_surface.set_idle_inhibit`: while a surface that asked is shown (on an output, with a buffer) the idle lock never falls due (`server_idle_inhibited`, `greeter_deadline`); `test_greeter` |
 | PRO-24 | Client-side decorations supported alongside server-side | P2 | |
 | PRO-25 | Protocol freeze v1, deprecation windows, compatibility tests per version | P3 | |
 | PRO-26 | Deprecation tracker for old protocol versions | P4 | |
@@ -359,7 +359,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | KEY-04 | Compose and dead keys | P2 | ◐ `input/compose` |
 | KEY-05 | Key repeat, with per-key-class rates | P2 | ◐ `input/input`: server-side, 500 ms then 30 a second (`input_set_repeat`), state 2 key events with their text; modifiers and locks do not repeat; the loop wakes for it through `input_repeat_deadline`; `test_input`. One rate for every key |
 | KEY-06 | Global shortcuts mediated by the server | P2 | ◐ `input/input`: Alt+F4 sends the focused window close, its client getting neither key; Alt+drag; `test_window`. Fixed, not configurable |
-| KEY-07 | Secure attention sequence that apps can never intercept | P2 | |
+| KEY-07 | Secure attention sequence that apps can never intercept | P2 | ✓ Ctrl+Alt+Delete is the server's before any client hears it: it opens the power menu (Lock among it), the window with the keyboard never sees the Delete, no client can grab the keyboard, and a password field or an open menu does not change that; at the login screen it is the login screen's; `test_window` |
 | KEY-08 | Per-device keymaps | P3 | |
 | KEY-09 | Per-window layouts | P3 | |
 | KEY-10 | Custom remapping and macros | P3 | |
@@ -379,11 +379,11 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | PTR-02 | Acceleration profiles (flat, adaptive, custom curve) per device | P2 | ◐ `input/accel` |
 | PTR-03 | Scroll speed and natural scroll per device | P2 | ✓ `input/pointer_settings`: per device (eight with their own, the rest the default) a scroll speed in 120ths and natural scrolling, set by `server_set_pointer` or `cw_seat.set_pointer` behind `CAP_SESSION`; `test_window` |
 | PTR-04 | High-resolution scroll events | P2 | ✓ `input/input`: scroll records in 120ths (code bit 8) or whole steps; every scroll as `cw_pointer.axis_value120`, then `axis` with whole steps as the 120ths add up, per axis; `test_window` |
-| PTR-05 | Button remapping, left-handed mode, middle-click emulation | P2 | ◐ `input/pointer_settings`: a 32-button map per device (`server_set_button_map`), left-handed swapping left and right over it; `test_window`. no middle-click emulation yet |
+| PTR-05 | Button remapping, left-handed mode, middle-click emulation | P2 | ✓ `input/pointer_settings`: a 32-button map per device (`server_set_button_map`), left-handed swapping left and right over it; middle-click emulation (flag 4): left and right within 50 ms are the middle button, a lone press held back that long, or until motion, a release or another button; `test_window` |
 | PTR-06 | Grabs for popups and drag operations | P2 | ◐ `input/grab` |
 | PTR-07 | Pointer lock and confinement | P2 | ◐ `input/constraints` |
 | PTR-08 | Relative pointer motion | P2 | ✓ `cw_pointer.set_relative`: while the pointer is over the surface, each motion record's raw dx, dy as `relative_motion`, before the pointer moves or stops at an edge; `test_window` |
-| PTR-09 | Pointer warping only with a grant | P2 | |
+| PTR-09 | Pointer warping only with a grant | P2 | ✓ `cw_pointer.warp`: to a point in the client's own surface, kept inside it, only while the pointer is over it and only with a grant (raw motion asked for, or `CAP_INJECT`); as a position record, so the cursor and focus follow as ever; `test_window` |
 | PTR-10 | Pointer barriers and edge pressure between monitors | P3 | |
 | PTR-11 | Cursor themes at multiple sizes, auto-scaled per DPI | P2 | ◐ `render/sw_cursor`: built-in shapes (arrow, I-beam, crosshair) a client picks per surface with `cw_pointer.set_shape`, each output drawing them at its scale rounded to 1x or 2x; `test_window`. No theme files (`input/cursor_theme` is a stub) |
 | PTR-12 | Hardware cursor always; never lags under load | P3 | → OUT-04. Until then `render/sw_cursor`: an arrow the compositor draws last, on whichever outputs it is over, redrawn as the pointer moves; on in canvasd (`Compositor.cursor_on`); `test_window` |
@@ -401,7 +401,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | TCH-01 | Multi-touch slots and surface delivery | P2 | ◐ `input/input` (records type 6): each finger goes to the surface it went down on until lifted or cancelled, a tap focusing it; `cw_touch` down, motion, up, cancel in the surface's pixels, and frame after each scan to the surfaces in it; device units scaled by `ut_input_device_info`; behind `CAP_TOUCH`; `test_window`. No gestures yet (`input/touch` is the older module) |
 | TCH-02 | Touchpad gestures: pinch, swipe, hold, multi-finger tap; configurable | P2 | ◐ `input/gestures`: a touchpad (device caps pointer and touch) has its contacts made into gestures for the surface under the pointer, as `cw_gesture`: a hold as fingers go down, a swipe when three or more move together 8 pixels, a pinch when two spread or close 8 (the hold ended, cancelled), updates with the move and the pinch's scale (16.16), an end when the fingers change; behind `CAP_POINTER`; four fingers or more are the server's (WIN-21); `test_window`. No multi-finger tap, rotation or settings |
 | TCH-03 | Touchpad palm rejection and disable-while-typing | P3 | |
-| TCH-04 | Touch-to-pointer emulation for clients without touch | P2 | |
+| TCH-04 | Touch-to-pointer emulation for clients without touch | P2 | ✓ `input/input`: a finger on a surface whose client takes no touch is the pointer, one finger at a time: down moves it there with the left button, a move moves it, up or cancel lets go; touch clients are untouched; `test_window` |
 | TCH-05 | Long-press → context menu translation | P3 | |
 | TCH-06 | Touch target expansion for small controls | P4 | |
 | TCH-07 | System edge swipes with app opt-out policy | P3 | |
