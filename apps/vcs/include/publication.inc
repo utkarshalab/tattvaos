@@ -20,6 +20,9 @@ struc vcs_publish_object
     .length  resq 1
     .envelope resq 1 ; authenticated allocator-provided physical locator
     .envelope_header resq 1 ; complete 128-byte physical envelope
+    .extents resq 1 ; contiguous extent_count 4 KiB staged images
+    .locators resq 1 ; extent_count strictly increasing allocator locators
+    .extent_count resq 1
 endstruc
 
 ; All callbacks return a VCS status except poison, whose result is ignored.
