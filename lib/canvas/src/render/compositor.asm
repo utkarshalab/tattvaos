@@ -67,6 +67,7 @@ extern titlebar_rect
 extern titlebar_render
 extern switcher_render
 extern menu_render
+extern surface_tell_preferred
 
 %define COMPOSITOR_BG_COLOR COMPOSITOR_BG  ; inc/struct_offsets.inc
 
@@ -316,6 +317,9 @@ compositor_move_to_output:
     mov rdi, rbx
     mov rsi, r12
     call compositor_damage_surface
+    mov rdi, rbx                        ; what to draw at there
+    mov rsi, r12
+    call surface_tell_preferred
 .done:
     xor eax, eax
     add rsp, 8
