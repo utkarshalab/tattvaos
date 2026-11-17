@@ -36,6 +36,7 @@ extern window_move
 extern server_mirror_output
 extern scale_nearest_rect
 extern scale_bilinear_rect
+extern ninepatch_draw
 extern displays_start
 extern scale_fractional_compute
 extern output_set_scale
@@ -43,6 +44,7 @@ extern magnify_focus
 extern window_move_to_workspace
 extern server_set_pointer
 extern menu_open_kind
+extern window_configure
 extern compositor_move_to_output
 extern launcher_add_app
 extern server_set_button_map
@@ -125,6 +127,7 @@ test_window_suite:
     add ebx, eax
 %endmacro
     CASE tw_configure, CAP_SHELL
+    CASE tw_ninepatch, CAP_SHELL
     CASE tw_place, CAP_SHELL
     CASE tw_names, CAP_SHELL
     CASE tw_list, CAP_SHELL
@@ -197,6 +200,9 @@ test_window_suite:
     CASE tw_preferred, CAP_SHELL
     CASE tw_activation, CAP_SHELL
     CASE tw_hung, CAP_SHELL
+    CASE tw_viewport, CAP_SHELL
+    CASE tw_aspect, CAP_SHELL
+    CASE tw_custom_cursor, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -2126,6 +2132,93 @@ tw_mirror:
     je .fail
     PASS
 
+; G2D-11: a 3x3 image of nine colours, 1-pixel insets, into 7x5 inside a
+; 9x7 image at 1, 1: each corner one pixel, the edges and middle stretched,
+; nothing outside the rectangle; then into 1x1: the corners shrunk away, no
+; middle; insets wider than the source refused; a 6-wide row with 3-pixel
+; corners into 4: two pixels of each corner
+%define NINE_W  9
+%macro NINE 3                           ; x, y, the pixel expected there
+    mov eax, [rel nine_dst + ((%2) * NINE_W + (%1)) * 4]
+    cmp eax, %3
+    jne .fail
+%endmacro
+tw_ninepatch:
+    sub rsp, 8
+    lea rax, [rel nine_dst]
+    mov [rel nine_job + UgfxNine_dst], rax
+    mov qword [rel nine_job + UgfxNine_dst_stride], NINE_W * 4
+    mov dword [rel nine_job + UgfxNine_x], 1
+    mov dword [rel nine_job + UgfxNine_y], 1
+    mov dword [rel nine_job + UgfxNine_w], 7
+    mov dword [rel nine_job + UgfxNine_h], 5
+    lea rax, [rel nine_src]
+    mov [rel nine_job + UgfxNine_src], rax
+    mov qword [rel nine_job + UgfxNine_src_stride], 12
+    mov dword [rel nine_job + UgfxNine_src_w], 3
+    mov dword [rel nine_job + UgfxNine_src_h], 3
+    mov dword [rel nine_job + UgfxNine_left], 1
+    mov dword [rel nine_job + UgfxNine_top], 1
+    mov dword [rel nine_job + UgfxNine_right], 1
+    mov dword [rel nine_job + UgfxNine_bottom], 1
+    lea rdi, [rel nine_job]
+    call ninepatch_draw
+    test rax, rax
+    jnz .fail
+    NINE 1, 1, 1                        ; the corners
+    NINE 7, 1, 3
+    NINE 1, 5, 7
+    NINE 7, 5, 9
+    NINE 2, 1, 2                        ; the edges, stretched
+    NINE 6, 1, 2
+    NINE 1, 2, 4
+    NINE 1, 4, 4
+    NINE 7, 3, 6
+    NINE 4, 5, 8
+    NINE 2, 2, 5                        ; the middle
+    NINE 6, 4, 5
+    NINE 0, 0, 0                        ; outside: untouched
+    NINE 8, 3, 0
+    NINE 4, 6, 0
+    lea rdi, [rel nine_dst]
+    xor eax, eax
+    mov ecx, NINE_W * 7
+    rep stosd
+    mov dword [rel nine_job + UgfxNine_w], 1
+    mov dword [rel nine_job + UgfxNine_h], 1
+    lea rdi, [rel nine_job]
+    call ninepatch_draw
+    test rax, rax
+    jnz .fail
+    NINE 1, 1, 9                        ; half of each corner: 0, the last
+    NINE 2, 1, 0
+    mov dword [rel nine_job + UgfxNine_left], 2
+    mov dword [rel nine_job + UgfxNine_right], 2
+    lea rdi, [rel nine_job]
+    call ninepatch_draw
+    cmp rax, -(EINVAL)
+    jne .fail
+    lea rax, [rel nine_row]             ; 6x1, insets 3 and 3, into 4x1 at
+    mov [rel nine_job + UgfxNine_src], rax  ; 0, 0: two of each corner
+    mov qword [rel nine_job + UgfxNine_src_stride], 24
+    mov dword [rel nine_job + UgfxNine_src_w], 6
+    mov dword [rel nine_job + UgfxNine_src_h], 1
+    mov dword [rel nine_job + UgfxNine_left], 3
+    mov dword [rel nine_job + UgfxNine_right], 3
+    mov dword [rel nine_job + UgfxNine_top], 0
+    mov dword [rel nine_job + UgfxNine_bottom], 0
+    mov dword [rel nine_job + UgfxNine_x], 0
+    mov dword [rel nine_job + UgfxNine_y], 0
+    mov dword [rel nine_job + UgfxNine_w], 4
+    mov dword [rel nine_job + UgfxNine_h], 1
+    lea rdi, [rel nine_job]
+    call ninepatch_draw
+    NINE 0, 0, 11
+    NINE 1, 0, 12
+    NINE 2, 0, 14
+    NINE 3, 0, 15
+    PASS
+
 ; scale_nearest_rect: a 2x2 image over 4x4, all of it, then one rectangle
 ; only
 %macro SCALED 3                         ; x, y, the pixel expected there
@@ -3996,6 +4089,144 @@ tw_size_limits:
     CONFIGURED 40, 30, 1
     PASS
 
+; WIN-08: shape 16:9; 32x32 asked is 32x18, 16x40 is 16x9, 64x18 is 32x18;
+; maximized it
+; fills the output whatever its shape; any shape again, 32x32
+tw_aspect:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    call drain
+    TL_REQ TOPLEVEL_SET_ASPECT, surface_a, 16, 9
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rdi, rax
+    mov esi, 32
+    mov edx, 32
+    call window_configure
+    CONFIGURED 32, 18, 0
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rdi, rax
+    mov esi, 16
+    mov edx, 40
+    call window_configure
+    CONFIGURED 16, 9, 0
+    mov edi, [rel surface_a]            ; too wide: 64x18 is 32x18
+    call surface_of
+    mov rdi, rax
+    mov esi, 64
+    mov edx, 18
+    call window_configure
+    CONFIGURED 32, 18, 0
+    TOPLEVEL TL_SET_MAX, surface_a, 0
+    call poll
+    CONFIGURED 64, 48, 1
+    TOPLEVEL TL_UNSET_MAX, surface_a, 0
+    call poll
+    call drain
+    TL_REQ TOPLEVEL_SET_ASPECT, surface_a, 0, 0
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rdi, rax
+    mov esi, 32
+    mov edx, 32
+    call window_configure
+    CONFIGURED 32, 32, 0
+    PASS
+
+; cw_pointer.set_cursor(surface_a, buffer variable %1, %2, %3), a turn
+%macro SET_CURSOR 3
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov eax, [rel %1]
+    mov [rel req + 4], eax
+    mov dword [rel req + 8], %2
+    mov dword [rel req + 12], %3
+    SEND CWP_OBJ_POINTER, POINTER_SET_CURSOR, 16
+    call poll
+%endmacro
+
+; PTR-16: a red 16x12 image, its first row see-through, its tip at 2, 3,
+; over window A: the pointer at 15, 15 shows it from 13, 13 to 28, 23 and
+; what is under at row 12; blue drawn over the buffer later does not change
+; it (the copy); a 32x12 one is refused, the image stays; set_shape brings
+; the arrow back
+tw_custom_cursor:
+    sub rsp, 8
+    mov rax, [rel server + Server.compositor]
+    mov qword [rax + Compositor.cursor_on], 1
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov edi, 16                         ; the image's buffer
+    mov esi, 12
+    call new_surface
+    mov eax, [rel buffer]
+    mov [rel cursor_buffer], eax
+    mov edi, 0xFFFF0000
+    call fill_buffer
+    mov rdi, [rel server + Server.buffer_table] ; its first row see-through
+    mov esi, [rel cursor_buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    xor eax, eax
+    mov ecx, 16
+    rep stosd
+    SET_CURSOR cursor_buffer, 2, 3
+    POINTER 15, 15
+    call poll
+    SEES 13, 12, 0xFF202030             ; the see-through row: what is under
+    SEES 13, 13, 0xFFFF0000
+    SEES 28, 23, 0xFFFF0000
+    SEES 29, 23, 0xFF202030
+    mov edi, 0xFF0000FF                 ; drawn over: the image is a copy
+    call fill_buffer
+    POINTER 16, 15
+    call poll
+    SEES 14, 13, 0xFFFF0000
+    mov edi, 32                         ; too wide: refused
+    mov esi, 12
+    call new_surface
+    mov eax, [rel buffer]
+    mov [rel big_buffer], eax
+    SET_CURSOR big_buffer, 0, 0
+    POINTER 15, 15
+    call poll
+    SEES 13, 13, 0xFFFF0000
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_POINTER, POINTER_SET_SHAPE, 8
+    call poll
+    POINTER 16, 16
+    call poll
+    SEES 16, 16, 0xFF000000             ; the arrow's tip
+    PASS
+
+; edi = a colour: all of cursor_buffer's 16x12 pixels
+fill_buffer:
+    push rbx
+    mov ebx, edi
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel cursor_buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov ecx, [rax + Buffer.stride]
+    imul ecx, ecx, 12
+    shr ecx, 2
+    mov eax, ebx
+    rep stosd
+    pop rbx
+    ret
+
 ; WIN-11: B, A's child, opens centred on A (22, 19), not at the pointer;
 ; a click on A raises B with it; A moved takes B along; A to workspace 2
 ; takes B; A's role gone, B belongs to none
@@ -4674,6 +4905,76 @@ tw_hung:
     jnz .fail
     PASS
 
+; cw_surface.set_viewport(surface_a, %1 .. %6), then a turn
+%macro VIEWPORT 6
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], %1
+    mov dword [rel req + 8], %2
+    mov dword [rel req + 12], %3
+    mov dword [rel req + 16], %4
+    mov dword [rel req + 20], %5
+    mov dword [rel req + 24], %6
+    SEND CWP_OBJ_SURFACE, SURFACE_SET_VIEWPORT, 28
+    call poll
+%endmacro
+
+; PRO-15: a 16x12 buffer, its left half green, its right red. The right
+; half at 16x24: red from the corner to 15, 23 and nothing past it; only
+; the right half, no size: 8x12 of red, the pointer past it not on it; the
+; part past the buffer: nothing
+tw_viewport:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_surface
+    mov [rel surface_a], eax
+    mov rdi, [rel server + Server.buffer_table]
+    mov esi, [rel buffer]
+    call handle_resolve
+    mov rdi, [rax + Buffer.base]
+    mov r8, [rax + Buffer.stride]
+    mov edx, 12
+.paint:
+    mov ecx, 8
+    mov eax, 0xFF00FF00
+    push rdi
+    rep stosd
+    mov ecx, 8
+    mov eax, 0xFFFF0000
+    rep stosd
+    pop rdi
+    add rdi, r8
+    dec edx
+    jnz .paint
+    VIEWPORT 8, 0, 8, 12, 16, 24
+    TOPLEVEL TL_CREATE, surface_a, 0
+    mov edi, [rel surface_a]
+    mov esi, [rel buffer]
+    xor edx, edx
+    xor ecx, ecx
+    call show
+    SEES 10, 10, 0xFFFF0000
+    SEES 25, 33, 0xFFFF0000
+    SEES 26, 10, 0xFF202030             ; past it: the background
+    SEES 10, 34, 0xFF202030
+    VIEWPORT 8, 0, 8, 12, 0, 0
+    call poll
+    SEES 17, 21, 0xFFFF0000
+    SEES 18, 10, 0xFF202030
+    POINTER 20, 15                      ; past its 8 columns: not on it
+    call poll
+    mov edi, [rel surface_a]
+    call surface_of
+    mov rcx, [rel server + Server.input_seat]
+    cmp [rcx + InputSeat.pointer_focus], rax
+    je .fail
+    VIEWPORT 12, 0, 8, 12, 0, 0         ; past the buffer's right edge
+    call poll
+    SEES 10, 10, 0xFF202030
+    PASS
+
 ; REL-16: a window at the far corner of a second output, the output
 ; unplugged: it is on the first, its corner kept 32 pixels inside (x 32,
 ; y 16 on 64x48); a maximized one there fills the first
@@ -5071,6 +5372,8 @@ tw_locked:
 section .data
 align 8
 scale_src:      dd 1, 2, 3, 4           ; 2 x 2
+nine_src:       dd 1, 2, 3, 4, 5, 6, 7, 8, 9   ; 3 x 3
+nine_row:       dd 11, 12, 13, 14, 15, 16      ; 6 x 1
 blend_src:      dd 0xFF000000, 0xFFFFFFFF   ; 2 x 1
 clip_type:      db "text/plain"
                 times CLIP_TYPE_LEN - 10 db 0
@@ -5085,6 +5388,8 @@ section .bss
 alignb 16
 server:         resb Server_size
 scale_dst:      resd 16                 ; 4 x 4
+nine_dst:       resd NINE_W * 7
+nine_job:       resb UgfxNine_SIZE
 fb0:            resd 64 * 48            ; tw_displays' boot framebuffer
 fb0_conf:       resb Config_size
 fb1:            resq 1                  ; framebuffer 1's display memory
@@ -5098,6 +5403,8 @@ pair_b:         resb ChannelPair_size   ; a second client, when a case wants one
 cur_pair:       resq 1                  ; the one the helpers talk through
 client_a:       resq 1                  ; pair's client id
 clip_serial:    resd 1
+cursor_buffer:  resd 1
+big_buffer:     resd 1
 output_id_a:    resd 1
 output_id_b:    resd 1
 hdr:            resb MsgHdr_size
