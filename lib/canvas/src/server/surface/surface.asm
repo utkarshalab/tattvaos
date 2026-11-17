@@ -549,24 +549,36 @@ surface_frame_callback:
 
 ; ---------------------------------------------------------------------------
 ; surface_logical_size
-;   A surface's size on the screen: its buffer's, times 120 over its buffer
-;   scale (decision 0012)
+;   A surface's size on the screen: its viewport's destination if it has
+;   one (PRO-15); else its viewport's part of the buffer, or the buffer,
+;   times 120 over its buffer scale (decision 0012)
 ;   IN:  rdi = Surface*, rsi = its Buffer*
 ;   OUT: eax = width, edx = height; rcx, r8 used
 ; ---------------------------------------------------------------------------
 global surface_logical_size
 surface_logical_size:
+    mov eax, [rdi + Surface.vp_dst_w]
+    test eax, eax
+    jz .source
+    mov edx, [rdi + Surface.vp_dst_h]
+    ret
+.source:
+    mov eax, [rsi + Buffer.width]
+    mov r8d, [rsi + Buffer.height]
+    cmp dword [rdi + Surface.vp_w], 0
+    je .sized
+    mov eax, [rdi + Surface.vp_w]
+    mov r8d, [rdi + Surface.vp_h]
+.sized:
     mov ecx, [rdi + Surface.buffer_scale]
     test ecx, ecx
     jz .same
     cmp ecx, 120
     je .same
-    mov eax, [rsi + Buffer.width]
     imul eax, eax, 120
     xor edx, edx
     div ecx
-    mov r8d, eax
-    mov eax, [rsi + Buffer.height]
+    xchg eax, r8d
     imul eax, eax, 120
     xor edx, edx
     div ecx
@@ -574,8 +586,7 @@ surface_logical_size:
     mov eax, r8d
     ret
 .same:
-    mov eax, [rsi + Buffer.width]
-    mov edx, [rsi + Buffer.height]
+    mov edx, r8d
     ret
 
 section .data
