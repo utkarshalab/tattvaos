@@ -78,6 +78,7 @@
 %define SURFACE_SET_POSITION      10
 %define SURFACE_FRAME_CALLBACK    11
 %define SURFACE_COMMIT            12
+%define SURFACE_SET_IDLE_INHIBIT  13
 %define SURFACE_EV_FRAME_DONE     0
 %define SURFACE_EV_ENTER          1
 %define SURFACE_EV_LEAVE          2
@@ -100,6 +101,7 @@
 ; cw_pointer (canvas-input.cwp)
 %define POINTER_SET_SHAPE          0
 %define POINTER_SET_RELATIVE       1
+%define POINTER_WARP               2
 %define POINTER_EV_ENTER           0
 %define POINTER_EV_LEAVE           1
 %define POINTER_EV_MOTION          2
