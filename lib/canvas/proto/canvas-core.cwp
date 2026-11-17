@@ -15,6 +15,12 @@ protocol canvas-core 1 {
         request sync() -> (serial: ulong)
         request get_version() -> (major: uint, minor: uint, patch: uint)
 
+        ; The answer to ping, with its serial (REL-14); the client library
+        ; sends it by itself. A client the user is working in that has not
+        ; answered for five seconds is not responding: the user is offered
+        ; to wait or force quit it
+        request pong(serial: ulong)
+
         event capabilities(granted: ulong)
         event error(object: handle, code: uint, message: string)
         event ping(serial: ulong)
@@ -213,6 +219,13 @@ protocol canvas-core 1 {
         event frame_done(surface: handle, callback: handle, time: ulong, flags: uint)
         event enter(surface: handle, output: handle)
         event leave(surface: handle, output: handle)
+
+        ; What to draw this surface at (SUR-13): the output it is on (its
+        ; cw_output id), that output's scale in 120ths and its rotation
+        ; (0 to 3, quarter turns). Sent when the surface is made, when it
+        ; moves to another output, and when its output's scale changes;
+        ; only when one of them is new
+        event preferred(surface: handle, output: uint, scale: uint, transform: uint)
     }
 
     ; ========================================================================
