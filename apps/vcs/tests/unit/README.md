@@ -28,5 +28,6 @@ rollback rejection, HEAD commit membership, ownership endpoint closure, root
 tampering, canonical unique staged sets, transaction binding, abort, poison,
 authenticated envelope-locator binding, canonical ownership batches, complete
 physical-envelope and extent-chain validation, transaction-pin coverage,
-overflow-safe reservation totals, callback order and preflight atomicity, plus
-the remaining module and differential suites.
+authenticated ownership-root binding and staged-edge membership, overflow-safe
+reservation totals, callback order and preflight atomicity, plus the remaining
+module and differential suites.
