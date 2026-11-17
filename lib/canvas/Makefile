@@ -470,7 +470,8 @@ CWP_OPS_PROTOS := proto/canvas-core.cwp proto/canvas-input.cwp proto/canvas-shel
 
 # Desktop components inside canvasd
 DESKTOP_SRCS := \
-    $(SRCDIR)/desktop/taskbar.asm
+    $(SRCDIR)/desktop/taskbar.asm \
+    $(SRCDIR)/desktop/menu.asm
 
 # All Sources
 ALL_SRCS    := $(UT_SRCS) $(CORE_SRCS) $(GFX_SRCS) $(PROTO_SRCS) $(IMG_SRCS) $(COLOR_SRCS) $(FONT_SRCS) $(SERVER_SRCS) $(RENDER_SRCS) $(GPU_SRCS) $(BACKEND_SRCS) $(DCN_SRCS) $(OUTPUT_SRCS) $(INPUT_SRCS) $(SHELL_SRCS) $(POLICY_SRCS) $(DATA_SRCS) $(SECURITY_SRCS) $(SESSION_SRCS) $(GOVERNANCE_SRCS) $(OBS_SRCS) $(CODEC_SRCS) $(REMOTE_SRCS) $(TEXT_SRCS) $(A11Y_SRCS) $(CLIENT_SRCS) $(DESKTOP_SRCS)
