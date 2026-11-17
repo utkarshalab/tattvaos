@@ -237,6 +237,10 @@ The staged-object list is strictly sorted by complete object ID with no
 duplicates. Each staged object's index record carries the transaction sequence
 being published. Objects deduplicated from an older generation remain reachable
 through the merged index and ownership graph but are not staged again.
+The staged ownership batch is also in canonical catalog order with no duplicate
+edges. Every newly staged object has an exact transaction-pin edge whose owner
+key is the current transaction's canonical identity and whose child type matches
+the object. Publication proves complete pin coverage before opening storage.
 
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
