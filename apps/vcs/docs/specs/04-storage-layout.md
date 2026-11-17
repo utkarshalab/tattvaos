@@ -244,6 +244,11 @@ Publication validates the complete 128-byte envelope before storage opens:
 format fields, object type and ID, canonical payload length, extent count and
 first-extent rules, creation transaction, reserved bytes and envelope checksum
 must all agree with the staged object and candidate generation.
+It also validates every staged 4,096-byte extent against the canonical payload
+and allocator locator list: headers, object IDs, contiguous indexes, exact
+payload partitioning, zero padding, final flags and next links must form one
+unique acyclic chain rooted at the envelope's first locator. The allocator
+supplies locators in strict ascending order so uniqueness preflight stays linear.
 The staged ownership batch is also in canonical catalog order with no duplicate
 edges. Every newly staged object has an exact transaction-pin edge whose owner
 key is the current transaction's canonical identity and whose child type matches
