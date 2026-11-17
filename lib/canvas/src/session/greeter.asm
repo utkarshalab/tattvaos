@@ -42,6 +42,7 @@ extern canvas_connect_pair
 extern canvas_event_poll
 extern canvas_layer_create
 extern cw_keyboard_set_secure
+extern server_idle_inhibited
 extern compositor_damage_all
 extern canvas_surface_attach
 extern canvas_surface_commit
@@ -482,16 +483,25 @@ greeter_set_idle:
 ; greeter_deadline
 ;   When the idle lock falls due, for the loop to wake by
 ;   IN:  rdi = greeter*
-;   OUT: rax = monotonic ns, 0 if none is due (locked, or no idle lock)
+;   OUT: rax = monotonic ns, 0 if none is due (locked, no idle lock, or a
+;        surface shown that asked for none: server_idle_inhibited)
 ; ---------------------------------------------------------------------------
 global greeter_deadline
 greeter_deadline:
     xor eax, eax
     cmp dword [rdi + Greeter.state], GREETER_DONE
     jne .out
+    cmp qword [rdi + Greeter.idle_ns], 0
+    je .out
+    push rdi                            ; 16-byte aligned
+    mov rdi, [rdi + Greeter.server]
+    call server_idle_inhibited
+    pop rdi
+    mov ecx, eax
+    xor eax, eax
+    test ecx, ecx
+    jnz .out
     mov rcx, [rdi + Greeter.idle_ns]
-    test rcx, rcx
-    jz .out
     mov rax, [rdi + Greeter.unlocked_at]    ; the last input, or the unlock
     mov rdx, [rdi + Greeter.server]
     mov rdx, [rdx + Server.input_seat]
