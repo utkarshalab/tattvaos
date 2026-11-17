@@ -69,6 +69,21 @@ protocol canvas-shell 1 {
         ; list's states until it gets the keyboard
         request request_attention(surface: handle)
 
+        ; A token to bring up a window with, another app's or its own
+        ; (PRO-18): only while this surface has the keyboard, 0 otherwise.
+        ; Good once, for ten seconds
+        request get_activation_token(surface: handle) -> (token: ulong)
+
+        ; Bring the window up with a token: raised, given the keyboard, even
+        ; while the user types elsewhere. Without a good token it is marked
+        ; urgent instead (WIN-14)
+        request activate(surface: handle, token: ulong)
+
+        ; This window's own icon (WIN-15), from one of the client's 32-bit
+        ; buffers of any size: kept as 16x16 (each pixel the nearest), drawn
+        ; on its taskbar block. Buffer 0: no icon
+        request set_icon(surface: handle, buffer: handle)
+
         ; A window shown by a client while the user is typing or clicking in
         ; another client's window (within the last second) does not take the
         ; keyboard; it is marked urgent instead (WIN-12)
