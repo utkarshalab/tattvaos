@@ -84,6 +84,11 @@ protocol canvas-shell 1 {
         ; on its taskbar block. Buffer 0: no icon
         request set_icon(surface: handle, buffer: handle)
 
+        ; Its shape (WIN-08): sizes asked for keep width:height, the largest
+        ; of that shape inside what it would have been; not while maximized
+        ; or fullscreen. 0, 0: any shape
+        request set_aspect(surface: handle, width: uint, height: uint)
+
         ; A window shown by a client while the user is typing or clicking in
         ; another client's window (within the last second) does not take the
         ; keyboard; it is marked urgent instead (WIN-12)
