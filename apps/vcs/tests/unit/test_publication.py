@@ -72,11 +72,12 @@ def oid(kind, payload):
     return hashlib.sha256(b"UVCSHSH1" + struct.pack("<HHIQ", 1, kind, 0, len(payload)) + payload).digest()
 
 
-payloads = [b"first immutable payload", b"second canonical object"]
-payload_buffers = [array(value) for value in payloads]
+object_specs = [(1, b"first immutable payload"),
+                (2, b"second canonical object")]
+object_specs.sort(key=lambda value: oid(value[0], value[1]))
+payload_buffers = [array(payload) for _, payload in object_specs]
 objects = (PublishObject * 2)()
-for index, payload in enumerate(payloads):
-    kind = index + 1
+for index, (kind, payload) in enumerate(object_specs):
     objects[index].object_id[:] = oid(kind, payload)
     objects[index].object_type = kind
     objects[index].payload = payload_buffers[index]
@@ -85,15 +86,16 @@ for index, payload in enumerate(payloads):
 edges = (Edge * 1)()
 edges[0].owner_kind = 1
 edges[0].child_type = 1
-edges[0].owner_key[:] = objects[1].object_id
-edges[0].child_id[:] = objects[0].object_id
+chunk_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 1)
+file_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 2)
+edges[0].owner_key[:] = objects[file_index].object_id
+edges[0].child_id[:] = objects[chunk_index].object_id
 
 commit_payload = b"canonical head commit"
 commit_id = oid(4, commit_payload)
-catalog = [
-    (bytes(objects[index].object_id), 100 + index, objects[index].length,
-     objects[index].object_type) for index in range(2)
-]
+catalog = [(bytes(objects[index].object_id), 100 + index,
+            objects[index].length, objects[index].object_type)
+           for index in range(2)]
 catalog.append((commit_id, 102, len(commit_payload), 4))
 index_records = (IndexRecord * len(catalog))()
 for slot, (object_id, envelope, length, object_type) in enumerate(
@@ -272,7 +274,7 @@ for mutation in ("head_missing", "head_wrong_type", "child_missing",
     if mutation.startswith("head"):
         candidate = bytearray(root_image)
         candidate[56:88] = (b"\xff" * 32 if mutation == "head_missing"
-                            else bytes(objects[1].object_id))
+                            else bytes(objects[file_index].object_id))
         candidate[480:512] = hashlib.sha256(candidate[:480]).digest()
         candidate_buffer = array(candidate)
         publication.root = candidate_buffer
@@ -291,4 +293,42 @@ for mutation in ("head_missing", "head_wrong_type", "child_missing",
     elif mutation == "owner_missing":
         edges[0].owner_key[0] ^= 1
 
-print("VCS publication: PASS (authenticated transition/HEAD/ownership, ordered phases, atomic failures)")
+# Staged objects are a strict unique ID set created by this transaction.
+saved_objects = bytes(objects)
+ctypes.memmove(ctypes.byref(objects, ctypes.sizeof(PublishObject)),
+               ctypes.byref(objects), ctypes.sizeof(PublishObject))
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+ctypes.memmove(ctypes.byref(objects), saved_objects, len(saved_objects))
+
+first = bytes(ctypes.string_at(ctypes.byref(objects), ctypes.sizeof(PublishObject)))
+second = bytes(ctypes.string_at(ctypes.byref(objects, ctypes.sizeof(PublishObject)),
+                                ctypes.sizeof(PublishObject)))
+ctypes.memmove(ctypes.byref(objects), second, len(second))
+ctypes.memmove(ctypes.byref(objects, ctypes.sizeof(PublishObject)), first, len(first))
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+ctypes.memmove(ctypes.byref(objects), saved_objects, len(saved_objects))
+
+staged_record = next(record for record in index_records
+                     if bytes(record.object_id) == bytes(objects[0].object_id))
+staged_record.transaction = 12
+index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
+root_image[184:216] = bytes(index_hash)
+root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
+root[:] = root_image
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+staged_record.transaction = 11
+index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
+root_image[184:216] = bytes(index_hash)
+root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
+root[:] = root_image
+
+print("VCS publication: PASS (authenticated closure/transaction, canonical staging, atomic failures)")
