@@ -76,7 +76,11 @@ must carry the current transaction sequence; older deduplicated objects are not
 restaged. Each new object's allocator-provided envelope locator must exactly
 match its authenticated index record. Its complete physical envelope is checked
 for format, type, ID, length, extent geometry, transaction, reserved bytes and
-checksum before the backend receives it. Ownership edges are canonical and
+checksum before the backend receives it. The complete staged extent images and
+allocator locator list are then matched to the canonical payload, including
+headers, object IDs, contiguous indexes, exact byte partitioning, zero padding,
+strictly increasing unique locators, final flags and next links. Ownership edges
+are canonical and
 unique, and an allocation-free sorted merge proves that every new object has a
 correctly typed pin owned by the current transaction. The coordinator then
 drives object staging, ownership staging, the repository root plus verified
