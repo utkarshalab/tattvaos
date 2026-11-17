@@ -41,6 +41,7 @@ extern canvas_buffer_mmap
 extern canvas_connect_pair
 extern canvas_event_poll
 extern canvas_layer_create
+extern cw_keyboard_set_secure
 extern compositor_damage_all
 extern canvas_surface_attach
 extern canvas_surface_commit
@@ -172,6 +173,10 @@ greeter_start:
     call canvas_layer_create
     test rax, rax
     js .out
+    mov rdi, [rbx + Greeter.conn]       ; a password field: the keyboard kept
+    mov esi, [rbx + Greeter.surface]    ; (SEC-08)
+    mov edx, 1
+    call cw_keyboard_set_secure
 
     ; Drawn and shown
     mov rdi, rbx
