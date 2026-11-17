@@ -11,6 +11,7 @@ default rel
 
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate,vcs_ownership_catalog_validate
+extern vcs_ownership_root_verify
 extern vcs_superblock_verify,vcs_superblock_select_latest
 extern sha256_hash
 
@@ -29,7 +30,7 @@ vcs_publication_commit:
  push r13
  push r14
  push r15
- sub rsp,184
+ sub rsp,200
  test rdi,rdi
  jz .usage
  mov rbx,rdi
@@ -111,6 +112,16 @@ vcs_publication_commit:
  call vcs_object_index_root_verify
  test eax,eax
  jnz .done
+ mov rax,[rbx+vcs_publication.ownership_root]
+ test rax,rax
+ jz .usage
+ mov rdx,[rbx+vcs_publication.generation]
+ cmp [rax+vcs_ownership_root.generation],rdx
+ jne .corrupt
+ mov rdi,rax
+ call vcs_ownership_root_verify
+ test eax,eax
+ jnz .done
  ; A born repository HEAD must resolve to a commit in this exact authenticated
  ; index generation. An unborn repository encodes all 32 bytes as zero.
  mov rax,[rbx+vcs_publication.root]
@@ -139,6 +150,13 @@ vcs_publication_commit:
  lea rdi,[rax+vcs_superblock.object_index_root]
  mov rax,[rbx+vcs_publication.index_root]
  mov rsi,[rax+vcs_object_index_root.root_hash]
+ call ids_equal_publication
+ test eax,eax
+ jz .corrupt
+ mov rax,[rbx+vcs_publication.root]
+ lea rdi,[rax+vcs_superblock.ownership_root]
+ mov rax,[rbx+vcs_publication.ownership_root]
+ mov rsi,[rax+vcs_ownership_root.root_hash]
  call ids_equal_publication
  test eax,eax
  jz .corrupt
@@ -379,6 +397,19 @@ vcs_publication_commit:
  call vcs_ownership_edge_validate
  test eax,eax
  jnz .done
+ ; Every staged edge must be present in the authenticated complete candidate
+ ; ownership generation, not merely in the backend insertion batch.
+ mov rax,[rbx+vcs_publication.ownership_root]
+ mov rdi,[rax+vcs_ownership_root.records]
+ mov rsi,[rax+vcs_ownership_root.record_count]
+ mov rdx,[rsp+40]
+ call ownership_edge_find_publication
+ test rax,rax
+ jz .corrupt
+ mov rdx,[rsp+40]
+ mov ecx,[rdx+vcs_ownership_edge.child_type]
+ cmp ecx,[rax+vcs_ownership_edge.child_type]
+ jne .corrupt
  ; Every child named by a staged ownership edge must exist with the declared
  ; immutable type in the same authenticated index generation.
  mov rax,[rbx+vcs_publication.index_root]
@@ -510,6 +541,8 @@ vcs_publication_commit:
  mov rcx,[rbx+vcs_publication.generation]
  mov rax,[rbx+vcs_publication.index_root]
  mov r8,[rax+vcs_object_index_root.root_hash]
+ mov rax,[rbx+vcs_publication.ownership_root]
+ mov r9,[rax+vcs_ownership_root.root_hash]
  call [rbp+vcs_publish_backend.stage_root]
  test eax,eax
  jnz .abort_with_status
@@ -561,7 +594,7 @@ vcs_publication_commit:
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
 .done:
- add rsp,184
+ add rsp,200
  pop r15
  pop r14
  pop r13
@@ -738,6 +771,80 @@ validate_extents_publication:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; RDI=canonical ownership records, RSI=count, RDX=target. RAX=record or zero.
+ownership_edge_find_publication:
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ mov rbx,rdi
+ mov r12,rsi
+ mov r13,rdx
+ xor r14d,r14d
+.ownership_find_loop:
+ cmp r14,r12
+ jae .ownership_find_missing
+ mov rax,r14
+ add rax,r12
+ shr rax,1
+ mov r15,rax
+ imul rax,vcs_ownership_edge_size
+ lea rdi,[rbx+rax]
+ mov rsi,r13
+ call ownership_edge_compare_publication
+ test eax,eax
+ jz .ownership_find_hit
+ js .ownership_find_raise
+ mov r12,r15
+ jmp .ownership_find_loop
+.ownership_find_raise:
+ lea r14,[r15+1]
+ jmp .ownership_find_loop
+.ownership_find_hit:
+ mov rax,r15
+ imul rax,vcs_ownership_edge_size
+ add rax,rbx
+ jmp .ownership_find_done
+.ownership_find_missing:
+ xor eax,eax
+.ownership_find_done:
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ ret
+
+; RDI/RSI=edges. Compare child ID, owner kind, then owner key.
+ownership_edge_compare_publication:
+ push rbx
+ push r12
+ mov rbx,rdi
+ mov r12,rsi
+ lea rdi,[rdi+vcs_ownership_edge.child_id]
+ lea rsi,[rsi+vcs_ownership_edge.child_id]
+ call ids_compare_publication
+ test eax,eax
+ jnz .ownership_compare_done
+ mov eax,[rbx+vcs_ownership_edge.owner_kind]
+ cmp eax,[r12+vcs_ownership_edge.owner_kind]
+ jb .ownership_compare_less
+ ja .ownership_compare_greater
+ lea rdi,[rbx+vcs_ownership_edge.owner_key]
+ lea rsi,[r12+vcs_ownership_edge.owner_key]
+ call ids_compare_publication
+ jmp .ownership_compare_done
+.ownership_compare_less:
+ mov eax,-1
+ jmp .ownership_compare_done
+.ownership_compare_greater:
+ mov eax,1
+.ownership_compare_done:
+ pop r12
+ pop rbx
  ret
 
 ; RDI/RSI=32-byte IDs. EAX=-1,0,1 for unsigned lexicographic ordering.
