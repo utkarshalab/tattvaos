@@ -213,6 +213,34 @@ idle_uninhibit:
     EPILOGUE_RESTORE rbx,r12
     ret
 
+; ---------------------------------------------------------------------------
+; server_idle_inhibited
+;   Whether a surface that asked not to be idle is shown: on an output, with
+;   a buffer (PRO-23)
+;   IN:  rdi = server*
+;   OUT: eax = 1 inhibited, 0 not
+; ---------------------------------------------------------------------------
+global server_idle_inhibited
+server_idle_inhibited:
+    mov rcx, [rdi + Server.stack]
+.surface:
+    xor eax, eax
+    test rcx, rcx
+    jz .out
+    cmp dword [rcx + Surface.idle_inhibit], 0
+    je .next
+    cmp qword [rcx + Surface.output], 0
+    je .next
+    cmp qword [rcx + Surface.current + SurfaceState.buffer], 0
+    je .next
+    mov eax, 1
+    ret
+.next:
+    mov rcx, [rcx + Surface.z_order_next]
+    jmp .surface
+.out:
+    ret
+
 section .data
 global idle_version
 idle_version: dq 0x010000
