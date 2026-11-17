@@ -57,6 +57,20 @@ cw_display_get_version:
     ret
 %endif
 
+%ifdef CWP_OBJ_DISPLAY                 ; (an interface with no object id: none)
+global cw_display_pong
+cw_display_pong:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], rsi  ; serial
+    mov esi, CWP_OBJ_DISPLAY
+    mov edx, DISPLAY_PONG
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
 %ifdef CWP_OBJ_CAPS                 ; (an interface with no object id: none)
 global cw_caps_get_interface_caps
 cw_caps_get_interface_caps:
@@ -1047,6 +1061,50 @@ cw_toplevel_request_attention:
     mov edx, TOPLEVEL_REQUEST_ATTENTION
     mov rcx, rsp
     mov r8d, 4
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_get_activation_token
+cw_toplevel_get_activation_token:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_GET_ACTIVATION_TOKEN
+    mov rcx, rsp
+    mov r8d, 4
+    call canvas_call
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_activate
+cw_toplevel_activate:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 8], rdx  ; token
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_ACTIVATE
+    mov rcx, rsp
+    mov r8d, 16
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_TOPLEVEL                 ; (an interface with no object id: none)
+global cw_toplevel_set_icon
+cw_toplevel_set_icon:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; buffer
+    mov esi, CWP_OBJ_TOPLEVEL
+    mov edx, TOPLEVEL_SET_ICON
+    mov rcx, rsp
+    mov r8d, 8
     call canvas_send
     add rsp, 40
     ret
