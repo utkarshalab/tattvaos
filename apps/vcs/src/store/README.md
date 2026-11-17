@@ -68,12 +68,14 @@ authenticating the complete object-index generation. Every staged object's ID,
 type and length must match that index before the backend begins. The coordinator
 also validates the recovered predecessor and binds the backend transaction to an
 exact one-generation successor, rejecting replay, skipped generations, sequence
-rollback and repository substitution before `begin`. It then drives object
-staging, ownership staging, the repository root plus verified index-root hash,
-flush and atomic publish. Failures before the publish barrier abort; an abort
-failure or ambiguous publish poisons the backend until remount. The coordinator
-is active, while the scalable UXFS callback adapter remains blocked on the
-durable allocator and atomic-generation ABI.
+rollback and repository substitution before `begin`. Nonzero HEAD must resolve
+to an indexed commit, ownership children must resolve with their declared type,
+and immutable owners must resolve in that same authenticated index generation.
+It then drives object staging, ownership staging, the repository root plus
+verified index-root hash, flush and atomic publish. Failures before the publish
+barrier abort; an abort failure or ambiguous publish poisons the backend until
+remount. The coordinator is active, while the scalable UXFS callback adapter
+remains blocked on the durable allocator and atomic-generation ABI.
 
 The older segment/WAL modules remain scaffolding and are excluded from the
 native build. The old GC scaffold was removed. UXFS provides the atomic volume
