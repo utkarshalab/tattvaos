@@ -59,9 +59,10 @@ codec's 15-entry ceiling; command migration to these objects is a later step.
 tree verification. File roots own their page chains and chunks; tree roots own
 their page chains and each page owns its referenced file/tree targets. Repeated
 targets under one page collapse before insertion. Catalog validation enforces
-strict ordering and duplicate exclusion, and reclamation succeeds only when the
-validated catalog has no inbound edge and the caller reports no active reader
-pin; transaction and migration pins remain ordinary durable owner edges.
+strict ordering and duplicate exclusion. Kind-2 mutable-root hashing authenticates
+the complete canonical catalog and generation. Reclamation succeeds only when
+the validated catalog has no inbound edge and the caller reports no active
+reader pin; transaction and migration pins remain ordinary durable owner edges.
 
 `publication.asm` preflights complete object IDs and ownership records before
 authenticating the complete object-index generation. Every staged object's ID,
@@ -80,13 +81,14 @@ checksum before the backend receives it. The complete staged extent images and
 allocator locator list are then matched to the canonical payload, including
 headers, object IDs, contiguous indexes, exact byte partitioning, zero padding,
 strictly increasing unique locators, final flags and next links. Ownership edges
-are canonical and
-unique, and an allocation-free sorted merge proves that every new object has a
-correctly typed pin owned by the current transaction. The coordinator then
-passes overflow-safe object, extent and ownership counts to backend reservation,
-then drives object staging, ownership staging, the repository root plus verified
-index-root hash, flush and atomic publish. Failures before the publish barrier
-abort; an abort failure or ambiguous publish poisons the backend until remount.
+are canonical and unique, and an allocation-free sorted merge proves that every
+new object has a correctly typed pin owned by the current transaction. The
+complete kind-2 ownership root is verified against the candidate generation and
+superblock, and every staged edge must belong to it. The coordinator then passes
+overflow-safe object, extent and ownership counts to backend reservation, then
+drives object staging, ownership staging, the repository root plus both verified
+catalog-root hashes, flush and atomic publish. Failures before the publish
+barrier abort; an abort failure or ambiguous publish poisons the backend until remount.
 The coordinator is active, while the scalable UXFS callback adapter remains
 blocked on the durable allocator and atomic-generation ABI.
 
