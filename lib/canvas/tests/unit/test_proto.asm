@@ -71,6 +71,8 @@ test_proto_main:
     CASE tb_full
     CASE tb_wrap
     CASE tb_too_small
+    CASE tb_short
+    CASE tb_outside
     CASE tc_handles
     CASE tc_plain
     CASE tc_empty
@@ -366,6 +368,51 @@ tb_too_small:
     mov edi, 16                         ; it stayed: a larger read gets it
     call take
     cmp rax, 16
+    jne .fail
+    PASS
+
+; SEC-06: a header saying 64 bytes follow when none were written is refused
+; and stays; so is a header cut short, and a write position past the end
+%define MB_BUF      0                   ; MsgBuf fields (proto/msgbuf.asm)
+%define MB_CAPACITY 8
+%define MB_READ     16
+%define MB_WRITE    24
+tb_short:
+    sub rsp, 8
+    HDR 1, 1, 0, 0
+    call put
+    mov rax, [rel mb + MB_BUF]          ; the writer lies about the length
+    mov dword [rax + MsgHdr.len], 64
+    mov edi, 256
+    call take
+    cmp rax, -(EPROTO)
+    jne .fail
+    cmp qword [rel mb + MB_READ], 0     ; still there
+    jne .fail
+    mov qword [rel mb + MB_WRITE], 8    ; half a header
+    mov edi, 256
+    call take
+    cmp rax, -(EPROTO)
+    jne .fail
+    PASS
+
+tb_outside:
+    sub rsp, 8
+    HDR 1, 1, 0, 0
+    call put
+    mov rax, [rel mb + MB_CAPACITY]
+    add rax, 16
+    mov [rel mb + MB_WRITE], rax
+    mov edi, 256
+    call take
+    cmp rax, -(EPROTO)
+    jne .fail
+    mov qword [rel mb + MB_WRITE], 16   ; whole again
+    mov rax, [rel mb + MB_CAPACITY]
+    mov [rel mb + MB_READ], rax         ; the read position outside
+    mov edi, 256
+    call take
+    cmp rax, -(EPROTO)
     jne .fail
     PASS
 
