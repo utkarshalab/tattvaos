@@ -9,6 +9,12 @@
 extern png_probe
 extern png_unfilter_row
 extern png_decode
+extern png_encode
+extern qoi_encode
+extern qoi_decode
+extern pixbuf_create
+extern crc32_ieee
+extern pixbuf_premultiply
 extern arena_init
 
 section .text
@@ -26,6 +32,14 @@ test_png_main:
     call test_png_filters
     add ebx,eax
     call test_png_decode_rgba
+    add ebx,eax
+    call test_png_iend_crc
+    add ebx,eax
+    call test_png_encode
+    add ebx,eax
+    call test_qoi_encode
+    add ebx,eax
+    call test_qoi_compact
     add ebx,eax
     mov eax,ebx
     EPILOGUE_RESTORE rbx
@@ -190,7 +204,263 @@ png_rgba:
     db 0,0,0,0, 'I','E','N','D', 0xae,0x42,0x60,0x82
 png_rgba_end:
 
+section .text
+
+; MED-11: crc32_ieee is PNG's: "IEND" gives AE 42 60 82
+test_png_iend_crc:
+    sub rsp, 8
+    lea rdi, [rel s_iend]
+    mov esi, 4
+    call crc32_ieee
+    add rsp, 8
+    cmp eax, 0xAE426082
+    jne .fail
+    xor eax, eax
+    ret
+.fail:
+    mov eax, 1
+    ret
+
+; A 200x100 image (enc_fill: runs, small steps, jumps, colours seen before,
+; see-through pixels) encoded (%1) and decoded again (%2) -> eax = 0 if
+; every pixel came back, 1 if not
+%define ENC_W   200
+%define ENC_H   100
+%define ENC_STORAGE (1024 * 1024)
+%define PB_WIDTH    0                   ; PixBuf fields (ugfx.inc)
+%define PB_HEIGHT   8
+%define PB_STRIDE   16
+%define PB_DATA     32
+%macro ROUND_TRIP 2
+    sub rsp, 8
+    call enc_fill
+    test rax, rax
+    js .fail
+    lea rdi, [rel enc_arena]
+    mov rsi, [rel enc_image]
+    call %1
+    test rax, rax
+    js .fail
+    lea rdi, [rel enc_arena]
+    mov rsi, rax
+    call %2
+    test rax, rax
+    jle .fail
+    mov [rel enc_decoded], rax
+    mov rdi, rax                        ; premultiplied, as images are kept
+    call pixbuf_premultiply
+    mov rdi, [rel enc_decoded]
+    call enc_same
+    add rsp, 8
+    ret
+.fail:
+    mov eax, 1
+    add rsp, 8
+    ret
+%endmacro
+test_png_encode:
+    ROUND_TRIP png_encode, png_decode
+test_qoi_encode:
+    ROUND_TRIP qoi_encode, qoi_decode
+
+; QOI's ops used where they fit, by the bytes each image takes (header 14,
+; end 8): 64 pixels of two colours far apart by turns, 4 + 4 for the first two, then
+; one each from the index; a 64-pixel ramp up by 1 a channel, one each as
+; small differences; 200 pixels the colour QOI starts from, four runs
+%macro QOI_SIZE 2                       ; pixel maker, bytes expected
+    lea rdi, [rel enc_arena]
+    lea rsi, [rel enc_storage]
+    mov edx, ENC_STORAGE
+    call arena_init
+    lea rdi, [rel enc_arena]
+    mov rsi, [rel enc_width]
+    mov edx, 1
+    mov ecx, DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax, rax
+    js .fail
+    mov [rel enc_image], rax
+    mov rdi, [rax + PB_DATA]
+    xor ecx, ecx
+%%pixel:
+    call %1
+    mov [rdi + rcx * 4], edx
+    inc ecx
+    cmp ecx, 200
+    jb %%pixel
+    lea rdi, [rel enc_arena]
+    mov rsi, [rel enc_image]
+    call qoi_encode
+    test rax, rax
+    js .fail
+    cmp rdx, %2
+    jne .fail
+%endmacro
+test_qoi_compact:
+    sub rsp, 8
+    mov qword [rel enc_width], 64
+    QOI_SIZE by_turns, 14 + 4 + 4 + 62 + 8
+    QOI_SIZE ramp, 14 + 64 + 8
+    mov qword [rel enc_width], 200
+    QOI_SIZE same, 14 + 4 + 8
+    xor eax, eax
+    add rsp, 8
+    ret
+.fail:
+    mov eax, 1
+    add rsp, 8
+    ret
+
+; ecx = x -> edx: grey and dark blue by turns; ramp: x + 1 in each channel;
+; same: black, opaque
+by_turns:
+    mov edx, 0xFF808080
+    test ecx, 1
+    jz .out
+    mov edx, 0xFF102030
+.out:
+    ret
+ramp:
+    lea edx, [rcx + 1]
+    imul edx, edx, 0x010101
+    or edx, 0xFF000000
+    ret
+same:
+    mov edx, 0xFF000000
+    ret
+
+; a fresh arena and the image in it -> rax = 0, negative error
+enc_fill:
+    sub rsp, 8
+    lea rdi, [rel enc_arena]
+    lea rsi, [rel enc_storage]
+    mov edx, ENC_STORAGE
+    call arena_init
+    lea rdi, [rel enc_arena]
+    mov esi, ENC_W
+    mov edx, ENC_H
+    mov ecx, DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax, rax
+    js .out
+    mov [rel enc_image], rax
+    xor r8d, r8d                        ; y
+.row:
+    mov rax, [rel enc_image]
+    mov rdi, r8
+    imul rdi, [rax + PB_STRIDE]
+    add rdi, [rax + PB_DATA]
+    xor ecx, ecx                        ; x
+.pixel:
+    call enc_pixel
+    mov [rdi + rcx * 4], edx
+    inc ecx
+    cmp ecx, ENC_W
+    jb .pixel
+    inc r8d
+    cmp r8d, ENC_H
+    jb .row
+    xor eax, eax
+.out:
+    add rsp, 8
+    ret
+
+; ecx = x, r8d = y -> edx = the pixel there (opaque, half see-through at
+; x 7, or all 0)
+enc_pixel:
+    cmp ecx, 6                          ; the first six of a row: one colour
+    jb .run
+    cmp ecx, 7
+    jne .not_half
+    mov edx, 0x80404040                 ; straight 128s: back to 64s exactly
+    ret
+.not_half:
+    mov eax, ecx
+    xor edx, edx
+    push rcx
+    mov r9d, 31
+    div r9d
+    pop rcx
+    test edx, edx
+    jz .clear                           ; see-through
+    mov eax, ecx
+    xor edx, edx
+    push rcx
+    mov r9d, 17
+    div r9d
+    pop rcx
+    test edx, edx
+    jz .jump
+    lea edx, [rcx * 2 + r8]            ; small steps
+    and edx, 0xFF
+    shl edx, 8
+    lea eax, [rcx * 3]
+    and eax, 0xFF
+    shl eax, 16
+    or edx, eax
+    lea eax, [r8 * 4 + r8]
+    add eax, ecx
+    and eax, 0xFF
+    or edx, eax
+    or edx, 0xFF000000
+    ret
+.run:
+    mov edx, 0xFF336699
+    ret
+.jump:
+    mov edx, 0xFFC0FFEE
+    test r8d, 1
+    jz .out
+    mov edx, 0xFF336699                 ; seen before: the index
+.out:
+    ret
+.clear:
+    xor edx, edx
+    ret
+
+; rdi = the decoded PixBuf -> eax = 0 if it is the image, pixel for pixel
+enc_same:
+    cmp qword [rdi + PB_WIDTH], ENC_W
+    jne .differ
+    cmp qword [rdi + PB_HEIGHT], ENC_H
+    jne .differ
+    mov rsi, [rel enc_image]
+    xor r8d, r8d
+.row:
+    mov r9, r8
+    imul r9, [rdi + PB_STRIDE]
+    add r9, [rdi + PB_DATA]
+    mov r10, r8
+    imul r10, [rsi + PB_STRIDE]
+    add r10, [rsi + PB_DATA]
+    xor ecx, ecx
+.pixel:
+    mov eax, [r9 + rcx * 4]
+    cmp eax, [r10 + rcx * 4]
+    jne .differ
+    inc ecx
+    cmp ecx, ENC_W
+    jb .pixel
+    inc r8d
+    cmp r8d, ENC_H
+    jb .row
+    xor eax, eax
+    ret
+.differ:
+    mov eax, 1
+    ret
+
+section .rodata
+s_iend:         db "IEND"
+
 section .bss
+alignb 16
+enc_arena:      resb 32
+enc_image:      resq 1
+enc_width:      resq 1
+enc_decoded:    resq 1
+alignb 16
+enc_storage:    resb ENC_STORAGE
 alignb 16
 png_test_arena: resb 32
 alignb 16
