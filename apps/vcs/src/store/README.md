@@ -83,7 +83,8 @@ strictly increasing unique locators, final flags and next links. Ownership edges
 are canonical and
 unique, and an allocation-free sorted merge proves that every new object has a
 correctly typed pin owned by the current transaction. The coordinator then
-drives object staging, ownership staging, the repository root plus verified
+passes overflow-safe object, extent and ownership counts to backend reservation,
+then drives object staging, ownership staging, the repository root plus verified
 index-root hash, flush and atomic publish. Failures before the publish barrier
 abort; an abort failure or ambiguous publish poisons the backend until remount.
 The coordinator is active, while the scalable UXFS callback adapter remains
