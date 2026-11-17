@@ -1470,6 +1470,8 @@ endstruc
 %define APP_NAME_MAX        31          ; bytes of an app's name
 %define APP_BUF_SIZE        1024        ; the kernel's list of them
 %define ACT_TOKENS          8           ; activation tokens kept (PRO-18)
+%define OSD_VOLUME          1           ; Server.osd_kind (DSK-08)
+%define OSD_BRIGHTNESS      2
 struc Server
     .arena:                   resq 1
     .backend:                 resq 1
@@ -1613,6 +1615,14 @@ struc Server
                                         ; to 5 shut down; 0 none (DSK-06)
     .launches:                resq 1    ; apps the launcher started (DSK-07)
     .force_quits:             resq 1    ; clients force quit (REL-14)
+    .volume:                  resq 1    ; 0 to 100 (DSK-08)
+    .muted:                   resq 1    ; 1: muted
+    .brightness:              resq 1    ; 0 to 100
+    .osd_ready:               resq 1    ; 1: the levels set to begin with
+    .osd_kind:                resq 1    ; OSD_* shown, 0: none
+    .osd_until:               resq 1    ; when it goes
+    .osd_output:              resq 1    ; the Output* it is on
+    .osd_box:                 resd 4    ; x, y, width, height
     .launch_last:             resq 1    ; the last one's place in apps, plus 1
     .app_count:               resq 1    ; apps listed
     .apps_loaded:             resq 1    ; 1: the kernel's list asked for
