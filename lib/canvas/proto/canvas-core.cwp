@@ -206,6 +206,10 @@ protocol canvas-core 1 {
         ; Commit pending state
         request commit(surface: handle, flags: uint)  ; TRANSACTION=1
 
+        ; While this surface is shown (on an output, with a buffer) the screen
+        ; does not lock for want of input: a video playing (PRO-23)
+        request set_idle_inhibit(surface: handle, on: bool)
+
         event frame_done(surface: handle, callback: handle, time: ulong, flags: uint)
         event enter(surface: handle, output: handle)
         event leave(surface: handle, output: handle)
