@@ -231,7 +231,12 @@ buffer_destroy:
     mov [rcx], rax
 .unlinked:
 
-    ; Free the pixels
+    ; Free the pixels, wiped first: whoever gets the pages next sees none
+    ; of this client's (SEC-07)
+    mov rdi, [r13 + Buffer.base]
+    xor esi, esi
+    mov rdx, [r13 + Buffer.size]
+    call memset
     mov rdi, [r13 + Buffer.region]
     call ut_mem_free
 
