@@ -101,6 +101,7 @@ extern seat_watch
 extern clamshell_update
 extern window_set_parent
 extern server_set_pointer
+extern input_warp
 extern input_focus_surface
 extern window_attention
 extern ut_wait_wake_task
@@ -1153,6 +1154,19 @@ HANDLER h_pointer_set_shape, 8
     call sw_cursor_redraw
 HANDLER_END
 
+; cw_surface.set_idle_inhibit(surface, on): while shown, no idle lock (PRO-23)
+HANDLER h_surface_set_idle_inhibit, 8
+    NEEDS_CAP CAP_SURFACE
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    xor ecx, ecx
+    cmp dword [r13 + 4], 0
+    setne cl
+    mov [rax + Surface.idle_inhibit], ecx
+HANDLER_END
+
 ; cw_keyboard.set_secure(surface, on): a password field; no other client's
 ; window takes the keyboard from it (SEC-08)
 HANDLER h_keyboard_set_secure, 8
@@ -1165,6 +1179,27 @@ HANDLER h_keyboard_set_secure, 8
     cmp dword [r13 + 4], 0
     setne cl
     mov [rax + Surface.secure_input], ecx
+HANDLER_END
+
+; cw_pointer.warp(surface, x, y): the pointer moved within the surface, with
+; a grant: raw motion asked for, or CAP_INJECT (PTR-09). Not over it: nothing
+HANDLER h_pointer_warp, 12
+    NEEDS_CAP CAP_POINTER
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    test qword [rbx + Client.caps], CAP_INJECT
+    jnz .granted
+    cmp dword [rax + Surface.pointer_relative], 0
+    je .denied
+.granted:
+    mov rdi, r14
+    mov rsi, rax
+    mov edx, [r13 + 4]
+    mov ecx, [r13 + 8]
+    call input_warp
+    xor eax, eax                        ; the pointer elsewhere: no error
 HANDLER_END
 
 ; cw_pointer.set_relative(surface, on): raw motion while over it (PTR-08)
