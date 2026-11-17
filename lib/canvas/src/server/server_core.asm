@@ -791,7 +791,7 @@ HANDLER h_buffer_create, 24
     NEEDS_CAP CAP_BUFFER
     mov rdi, r14
     mov rsi, rbx
-    mov rdx, r13
+    mov rdx, r13                        ; payload 24: width, height, format, pad, modifier
     xor ecx, ecx
     call buffer_create
     test rax, rax
@@ -1015,7 +1015,7 @@ HANDLER h_clipboard_offer, 8 + CLIP_TYPES * CLIP_TYPE_LEN
     NEEDS_CAP CAP_CLIPBOARD
     mov rdi, r14
     mov rsi, rbx
-    mov rdx, r13
+    mov rdx, r13                        ; payload 8 + CLIP_TYPES * CLIP_TYPE_LEN
     call clipboard_offer
 HANDLER_END
 
@@ -1025,7 +1025,7 @@ HANDLER h_clipboard_receive, 4 + CLIP_TYPE_LEN
     NEEDS_CAP CAP_CLIPBOARD
     mov rdi, r14
     mov rsi, rbx
-    mov rdx, r13
+    mov rdx, r13                        ; payload 4 + CLIP_TYPE_LEN
     call clipboard_receive
     test rax, rax
     js .return
@@ -1103,7 +1103,7 @@ HANDLER h_dnd_start, 8 + CLIP_TYPES * CLIP_TYPE_LEN
     mov rdi, r14
     mov rsi, rbx
     mov rdx, rax
-    mov rcx, r13
+    mov rcx, r13                        ; payload 8 + CLIP_TYPES * CLIP_TYPE_LEN
     call dnd_start
 HANDLER_END
 
@@ -1151,6 +1151,20 @@ HANDLER h_pointer_set_shape, 8
     mov [rax + Surface.cursor_shape], rcx
     mov rdi, r14
     call sw_cursor_redraw
+HANDLER_END
+
+; cw_keyboard.set_secure(surface, on): a password field; no other client's
+; window takes the keyboard from it (SEC-08)
+HANDLER h_keyboard_set_secure, 8
+    NEEDS_CAP CAP_KEYBOARD
+    mov esi, [r13]
+    call own_surface
+    test rax, rax
+    jz .bad_object
+    xor ecx, ecx
+    cmp dword [r13 + 4], 0
+    setne cl
+    mov [rax + Surface.secure_input], ecx
 HANDLER_END
 
 ; cw_pointer.set_relative(surface, on): raw motion while over it (PTR-08)
@@ -1397,14 +1411,14 @@ HANDLER_END
 HANDLER h_region_add, 20
     OWN_REGION
     mov rdi, rax
-    lea rsi, [r13 + 4]                  ; x, y, width, height as they came
+    lea rsi, [r13 + 4]                  ; payload 16: x, y, width, height
     call regions_add
 HANDLER_END
 
 HANDLER h_region_subtract, 20
     OWN_REGION
     mov rdi, rax
-    lea rsi, [r13 + 4]
+    lea rsi, [r13 + 4]                  ; payload 16: x, y, width, height
     call regions_subtract
 HANDLER_END
 
