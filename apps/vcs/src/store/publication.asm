@@ -12,6 +12,10 @@ default rel
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate,vcs_ownership_catalog_validate
 extern vcs_superblock_verify,vcs_superblock_select_latest
+extern sha256_hash
+
+section .rodata
+publication_envelope_magic: db 'UVCSOBJ3'
 
 section .text
 global vcs_publication_commit
@@ -24,7 +28,7 @@ vcs_publication_commit:
  push r13
  push r14
  push r15
- sub rsp,136
+ sub rsp,168
  test rdi,rdi
  jz .usage
  mov rbx,rdi
@@ -238,6 +242,70 @@ vcs_publication_commit:
  cmp eax,-1
  jne .corrupt
 .object_order_valid:
+ ; Validate the complete physical envelope that the backend will place at the
+ ; authenticated locator. The canonical payload ID was already recomputed.
+ mov rax,[rsp+40]
+ mov r10,[rax+vcs_publish_object.envelope_header]
+ test r10,r10
+ jz .usage
+ mov [rsp+48],r10
+ mov rdx,[publication_envelope_magic]
+ cmp [r10],rdx
+ jne .corrupt
+ cmp word [r10+8],1
+ jne .corrupt
+ cmp word [r10+10],VCS_OBJECT_ENVELOPE_BYTES
+ jne .corrupt
+ movzx edx,word [r10+12]
+ cmp edx,[rax+vcs_publish_object.type]
+ jne .corrupt
+ cmp word [r10+14],1
+ jne .corrupt
+ cmp qword [r10+16],0
+ jne .corrupt
+ mov rdx,[rax+vcs_publish_object.length]
+ cmp [r10+24],rdx
+ jne .corrupt
+ mov rcx,rdx
+ add rcx,VCS_OBJECT_EXTENT_PAYLOAD-1
+ jc .space
+ xor edx,edx
+ mov rax,rcx
+ mov ecx,VCS_OBJECT_EXTENT_PAYLOAD
+ div rcx
+ cmp [r10+32],rax
+ jne .corrupt
+ mov rax,[rsp+40]
+ lea rdi,[rax+vcs_publish_object.id]
+ lea rsi,[r10+40]
+ call ids_equal_publication
+ test eax,eax
+ jz .corrupt
+ mov rax,[rsp+40]
+ cmp qword [rax+vcs_publish_object.length],0
+ je .empty_envelope
+ cmp qword [r10+72],0
+ je .corrupt
+ jmp .envelope_locator_valid
+.empty_envelope:
+ cmp qword [r10+72],0
+ jne .corrupt
+.envelope_locator_valid:
+ mov rax,[rbx+vcs_publication.tx_sequence]
+ cmp [r10+80],rax
+ jne .corrupt
+ cmp qword [r10+120],0
+ jne .corrupt
+ mov rdi,r10
+ mov esi,88
+ lea rdx,[rsp+136]
+ call sha256_hash
+ mov r10,[rsp+48]
+ lea rdi,[rsp+136]
+ lea rsi,[r10+88]
+ call ids_equal_publication
+ test eax,eax
+ jz .corrupt
  ; Every staged immutable object must already exist in the authenticated index
  ; generation with the same canonical type and length.
  mov rax,[rbx+vcs_publication.index_root]
@@ -471,7 +539,7 @@ vcs_publication_commit:
 .corrupt:
  mov eax,VCS_ERR_CORRUPT
 .done:
- add rsp,136
+ add rsp,168
  pop r15
  pop r14
  pop r13
