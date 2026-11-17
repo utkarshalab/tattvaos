@@ -26,7 +26,7 @@ struc vcs_publish_object
 endstruc
 
 ; All callbacks return a VCS status except poison, whose result is ignored.
-; begin(ctx, tx_sequence, object_count, edge_count)
+; begin(ctx, tx_sequence, object_count, extent_count, edge_count)
 ; put_object(ctx, vcs_publish_object*)
 ; put_edge(ctx, vcs_ownership_edge*)
 ; stage_root(ctx, root_bytes, root_length, generation, object_index_root_hash)
