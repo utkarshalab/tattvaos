@@ -537,6 +537,21 @@ cw_surface_commit:
     ret
 %endif
 
+%ifdef CWP_OBJ_SURFACE                 ; (an interface with no object id: none)
+global cw_surface_set_idle_inhibit
+cw_surface_set_idle_inhibit:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; on
+    mov esi, CWP_OBJ_SURFACE
+    mov edx, SURFACE_SET_IDLE_INHIBIT
+    mov rcx, rsp
+    mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
 %ifdef CWP_OBJ_SUBSURFACE                 ; (an interface with no object id: none)
 global cw_subsurface_get_parent
 cw_subsurface_get_parent:
@@ -696,6 +711,22 @@ cw_pointer_set_relative:
     mov edx, POINTER_SET_RELATIVE
     mov rcx, rsp
     mov r8d, 8
+    call canvas_send
+    add rsp, 40
+    ret
+%endif
+
+%ifdef CWP_OBJ_POINTER                 ; (an interface with no object id: none)
+global cw_pointer_warp
+cw_pointer_warp:
+    sub rsp, 40                         ; the payload; 16-byte aligned
+    mov [rsp + 0], esi  ; surface
+    mov [rsp + 4], edx  ; x
+    mov [rsp + 8], ecx  ; y
+    mov esi, CWP_OBJ_POINTER
+    mov edx, POINTER_WARP
+    mov rcx, rsp
+    mov r8d, 12
     call canvas_send
     add rsp, 40
     ret
