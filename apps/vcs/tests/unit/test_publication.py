@@ -6,7 +6,7 @@ import sys
 
 lib = ctypes.CDLL(sys.argv[1])
 P = ctypes.POINTER(ctypes.c_ubyte)
-OK, IO, CORRUPT, USAGE = 0, 4, 5, 8
+OK, NO_MEM, IO, CORRUPT, USAGE = 0, 3, 4, 5, 8
 NONE, BEGUN, OBJECTS, OWNERSHIP, ROOT, FLUSHED, COMMITTED, POISONED, ABORTED = range(9)
 
 
@@ -61,7 +61,7 @@ lib.vcs_publication_commit.argtypes = [ctypes.POINTER(Publication)]
 lib.vcs_publication_commit.restype = ctypes.c_uint64
 
 BEGIN_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_uint64,
-                           ctypes.c_uint64, ctypes.c_uint64)
+                           ctypes.c_uint64, ctypes.c_uint64, ctypes.c_uint64)
 PAIR_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p)
 ROOT_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p,
                           ctypes.c_uint64, ctypes.c_uint64, ctypes.c_void_p)
@@ -189,8 +189,8 @@ def backend_for(fail=None, abort_fail=False):
             return IO
         return IO if fail == name else OK
     @BEGIN_CB
-    def begin(ctx, tx, object_count, edge_count):
-        assert (tx, object_count, edge_count) == (11, 2, len(edges))
+    def begin(ctx, tx, object_count, extent_count, edge_count):
+        assert (tx, object_count, extent_count, edge_count) == (11, 2, 3, len(edges))
         return status("begin")
     @PAIR_CB
     def put_object(ctx, value):
@@ -443,6 +443,15 @@ publication = request(backend)
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == USAGE
 assert publication.result_phase == 0xBAD and state["events"] == []
 objects[multi_index].extents = ctypes.cast(saved_extents_address, P)
+
+saved_counts = objects[0].extent_count, objects[1].extent_count
+objects[0].extent_count = (1 << 64) - 1
+objects[1].extent_count = 1
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == NO_MEM
+assert publication.result_phase == 0xBAD and state["events"] == []
+objects[0].extent_count, objects[1].extent_count = saved_counts
 
 # Ownership inputs are canonical and every staged object is pinned by the
 # current transaction key before durable staging begins.
