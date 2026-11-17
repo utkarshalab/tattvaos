@@ -373,7 +373,8 @@ SHELL_SRCS := \
     $(SRCDIR)/shell/window.asm \
     $(SRCDIR)/shell/window_list.asm \
     $(SRCDIR)/shell/titlebar.asm \
-    $(SRCDIR)/shell/switcher.asm
+    $(SRCDIR)/shell/switcher.asm \
+    $(SRCDIR)/shell/activation.asm
 
 # Policy (C13)
 POLICY_SRCS := \
@@ -415,6 +416,7 @@ GOVERNANCE_SRCS := \
     $(SRCDIR)/governance/quota.asm \
     $(SRCDIR)/governance/ratelimit.asm \
     $(SRCDIR)/governance/watchdog.asm \
+    $(SRCDIR)/governance/hang.asm \
     $(SRCDIR)/governance/containment.asm \
     $(SRCDIR)/governance/scheduler.asm \
     $(SRCDIR)/governance/accounting.asm
