@@ -334,7 +334,8 @@ ts_frame_done:
     mov r9d, 4
     call show
     call poll
-    call next_event                     ; the callback's id
+    call next_reply                     ; the callback's id (a preferred
+                                        ; event may come first)
     cmp rax, 4
     jne .bad
     mov edx, [rel ans]
