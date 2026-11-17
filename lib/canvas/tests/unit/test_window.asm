@@ -184,6 +184,7 @@ test_window_suite:
     CASE tw_scroll, CAP_SHELL | CAP_SESSION
     CASE tw_buttons, CAP_SHELL
     CASE tw_relative, CAP_SHELL
+    CASE tw_secure, CAP_SHELL
     CASE tw_magnify_focus, CAP_SHELL
     CASE tw_pad, CAP_SHELL
     CASE tw_pen_curve, CAP_SHELL
@@ -4044,6 +4045,49 @@ tw_focus_steal:
     URGENT_IS surface_b, 1
     mov rax, [rel server + Server.input_seat]
     mov qword [rax + InputSeat.last_input], 0
+    AS pair_b
+    POINTER 40, 10
+    mov edi, 8
+    mov esi, 6
+    call new_window
+    mov [rel surface_c], eax
+    AS pair
+    KEYBOARD_ON surface_c
+    PASS
+
+; SEC-08: A's window holds a password field; B's new window does not take
+; the keyboard, though nothing was pressed; with the field gone B's next
+; window does
+tw_secure:
+    sub rsp, 8
+    POINTER 10, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    mov [rel req], eax
+    mov dword [rel req + 4], 1
+    SEND CWP_OBJ_KEYBOARD, KEYBOARD_SET_SECURE, 8
+    call poll
+    lea rdi, [rel server]               ; B, another client
+    lea rsi, [rel pair_b]
+    mov edx, CAP_SHELL | CAP_POINTER | CAP_KEYBOARD
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    POINTER 40, 30
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    AS pair
+    KEYBOARD_ON surface_a
+    mov eax, [rel surface_a]
+    mov [rel req], eax
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_KEYBOARD, KEYBOARD_SET_SECURE, 8
+    call poll
     AS pair_b
     POINTER 40, 10
     mov edi, 8
