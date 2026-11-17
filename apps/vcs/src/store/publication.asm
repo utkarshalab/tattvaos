@@ -261,6 +261,11 @@ vcs_publication_commit:
  mov rcx,[rax+vcs_publish_object.length]
  cmp rcx,[rdx+vcs_object_index_record.payload_length]
  jne .corrupt
+ mov rcx,[rax+vcs_publish_object.envelope]
+ test rcx,rcx
+ jz .corrupt
+ cmp rcx,[rdx+vcs_object_index_record.envelope]
+ jne .corrupt
  mov rcx,[rbx+vcs_publication.tx_sequence]
  cmp rcx,[rdx+vcs_object_index_record.transaction]
  jne .corrupt
