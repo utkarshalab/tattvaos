@@ -24,5 +24,6 @@ page/target edges across multiple tree pages, per-owner duplicate collapse and
 atomic capacity/corruption failure. The standard `make test` target runs these with
 `test_publication.py`, which injects failure at every transaction phase and
 checks authenticated predecessor transitions and index membership, replay and
-rollback rejection, root tampering, abort, poison, callback order and preflight
-atomicity, plus the remaining module and differential suites.
+rollback rejection, HEAD commit membership, ownership endpoint closure, root
+tampering, abort, poison, callback order and preflight atomicity, plus the
+remaining module and differential suites.
