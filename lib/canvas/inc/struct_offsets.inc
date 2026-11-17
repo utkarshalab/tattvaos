@@ -550,6 +550,10 @@ struc Client
     .fences:                  resq 1    ; its Fences (server/fence)
     .timelines:               resq 1    ; its Timelines (server/timeline)
     resb 64
+    .hang_serial:             resq 1    ; the last ping's serial (REL-14)
+    .hang_since:              resq 1    ; when it went, 0: answered
+    .hang_answered:           resq 1    ; when the last was answered
+    .hung:                    resq 1    ; 1: not responding
 endstruc
 
 struc ClientConn
@@ -1465,6 +1469,7 @@ endstruc
 %define APPS_MAX            32          ; apps the launcher lists
 %define APP_NAME_MAX        31          ; bytes of an app's name
 %define APP_BUF_SIZE        1024        ; the kernel's list of them
+%define ACT_TOKENS          8           ; activation tokens kept (PRO-18)
 struc Server
     .arena:                   resq 1
     .backend:                 resq 1
@@ -1607,10 +1612,15 @@ struc Server
     .power_last:              resq 1    ; the power menu's last choice, 1 lock
                                         ; to 5 shut down; 0 none (DSK-06)
     .launches:                resq 1    ; apps the launcher started (DSK-07)
+    .force_quits:             resq 1    ; clients force quit (REL-14)
     .launch_last:             resq 1    ; the last one's place in apps, plus 1
     .app_count:               resq 1    ; apps listed
     .apps_loaded:             resq 1    ; 1: the kernel's list asked for
     .apps:                    resb APPS_MAX * 32  ; a length byte, the name
+    .act_key:                 resb 32   ; activation tokens' SipHash key
+    .act_keyed:               resq 1    ; 1: the key taken from the kernel
+    .act_seq:                 resq 1    ; tokens made
+    .act_tokens:              resq 16   ; ACT_TOKENS (value, 0: none; until)
 endstruc
 
 ; One raw input event, as a source hands it to input_submit
@@ -1785,6 +1795,9 @@ struc Surface
     .pointer_relative:        resd 1    ; 1: raw motion while the pointer is over it
     .secure_input:            resd 1    ; 1: a password field, the keyboard kept
     .idle_inhibit:            resd 1    ; 1: while shown, no idle lock
+    .pref_output:             resq 1    ; the preferred event last sent:
+    .pref_scale:              resd 1    ; its output, scale and transform
+    .pref_transform:          resd 1    ; (SUR-13)
 endstruc
 
 ; A surface with a shell role (src/shell/window.asm): a toplevel window,
@@ -1847,6 +1860,10 @@ endstruc
 %define ANCHOR_LEFT     4
 %define ANCHOR_RIGHT    8
 
+%define WINDOW_ICON         16          ; a window icon's side, pixels
+%if WINDOW_ICON * WINDOW_ICON != 256 || ACT_TOKENS * 2 != 16
+    %error "Window.icon and Server.act_tokens must follow WINDOW_ICON and ACT_TOKENS"
+%endif
 struc Window
     .server:                  resq 1
     .surface:                 resq 1
@@ -1887,6 +1904,9 @@ struc Window
     .transient:               resq 1    ; the toplevel Surface* it belongs to
     .title:                   resb 64   ; WINDOW_NAME_MAX + 1
     .app_id:                  resb 64
+    .has_icon:                resd 1    ; 1: icon holds its icon (WIN-15)
+    .icon_pad:                resd 1
+    .icon:                    resd 256  ; WINDOW_ICON x WINDOW_ICON BGRA rows
 endstruc
 
 struc Tablet
