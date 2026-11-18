@@ -81,68 +81,6 @@ jpeg_clamp_u8:
 .clamped:
     ret
 
-; Write one full-resolution MCU, clipping against the PixBuf dimensions.
-; rdi=PixBuf, rsi=Y, rdx=Cb, rcx=Cr, r8=dst x, r9=dst y,
-; r10=MCU width, r11=MCU height.
-global jpeg_write_color_mcu
-jpeg_write_color_mcu:
-    PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 32
-    mov rbx, rdi
-    mov r12, rsi
-    mov r13, rdx
-    mov r14, rcx
-    mov [rsp], r8
-    mov [rsp + 8], r9
-    mov [rsp + 16], r10
-    mov [rsp + 24], r11
-    ASSERT_PTR rbx
-    cmp r8, [rbx + PixBuf.width]
-    jae .write_invalid
-    cmp r9, [rbx + PixBuf.height]
-    jae .write_invalid
-    test r10, r10
-    jz .write_invalid
-    test r11, r11
-    jz .write_invalid
-    xor r15d, r15d
-.write_row:
-    cmp r15, [rsp + 24]
-    jae .write_done
-    mov rax, [rsp + 8]
-    add rax, r15
-    cmp rax, [rbx + PixBuf.height]
-    jae .write_done
-    imul rax, [rbx + PixBuf.stride]
-    add rax, [rbx + PixBuf.data]
-    mov rcx, [rsp]
-    lea rdi, [rax + rcx * 4]
-    mov rax, r15
-    imul rax, [rsp + 16]
-    lea rsi, [r12 + rax * 2]
-    lea rdx, [r13 + rax * 2]
-    lea rcx, [r14 + rax * 2]
-    mov r8, [rbx + PixBuf.width]
-    sub r8, [rsp]
-    cmp r8, [rsp + 16]
-    jbe .write_count_ready
-    mov r8, [rsp + 16]
-.write_count_ready:
-    call jpeg_ycbcr_to_bgra
-    test rax, rax
-    jnz .write_out
-    inc r15
-    jmp .write_row
-.write_done:
-    xor eax, eax
-    jmp .write_out
-.write_invalid:
-    mov rax, -EINVAL
-.write_out:
-    add rsp, 32
-    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
-    ret
-
 section .data
 global jpeg_color_version
 jpeg_color_version: dq 0x010000
