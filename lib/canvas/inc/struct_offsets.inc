@@ -554,6 +554,9 @@ struc Client
     .hang_since:              resq 1    ; when it went, 0: answered
     .hang_answered:           resq 1    ; when the last was answered
     .hung:                    resq 1    ; 1: not responding
+    .used_pixels:             resq 1    ; its buffers' bytes (quota)
+    .used_buffers:            resd 1
+    .used_surfaces:           resd 1
 endstruc
 
 struc ClientConn
