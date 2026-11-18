@@ -91,7 +91,7 @@ tga_decode:
     test r8,r8
     jz .done
     test r9,r9
-    jnz .packet_active
+    jnz .in_packet
     cmp r14d,10
     je .packet_header
     cmp r14d,11
@@ -111,11 +111,11 @@ tga_decode:
 .raw_packet:
     mov r9,1
     xor ecx,ecx
-.load_if_needed:
-    test ecx,ecx
-    jz .read_sample
-    cmp r9,rax                     ; first pixel of RLE packet
-    jne .packet_active
+.load_if_needed:                   ; a packet's first pixel: its sample
+    jmp .read_sample
+.in_packet:                        ; a raw packet's every pixel has one, a
+    test ecx,ecx                   ; run packet's the first only
+    jnz .packet_active
 .read_sample:
     mov eax,r15d
     shr eax,3
