@@ -105,6 +105,9 @@ drives object staging, ownership staging, the repository root
 plus all three verified catalog-root hashes, flush and atomic publish. Failures
 before the publish barrier abort; an abort failure or ambiguous publish poisons
 the backend until remount.
+For each newly staged commit, publication invokes the canonical commit codec and
+requires every generated tree/parent edge in both the current insertion batch
+and the authenticated candidate ownership root before storage opens.
 The coordinator is active, while the scalable UXFS callback adapter remains
 blocked on the durable allocator and atomic-generation ABI.
 
