@@ -43,7 +43,7 @@ qoi_decode:
     pop r11
     pop r10
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     mov r14,[rbx+PixBuf.data]
     mov r15,r10
