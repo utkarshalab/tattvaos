@@ -36,4 +36,6 @@ physical-envelope and extent-chain validation, transaction-pin coverage,
 authenticated ownership-root binding and staged-edge membership, overflow-safe
 reservation totals, authenticated ref-root binding, callback order and preflight
 atomicity, direct commit-target closure, the required ref-key ownership edge and
-symbolic `HEAD` resolution, plus the remaining module and differential suites.
+symbolic `HEAD` resolution. It also stages a canonical scalable commit and
+rejects a transaction missing its required tree dependency edge. The standard
+gate then runs the remaining module and differential suites.
