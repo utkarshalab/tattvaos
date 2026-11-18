@@ -120,6 +120,7 @@ vcs_publication_commit:
  mov rdi,[rax+vcs_object_index_root.records]
  mov rsi,[rax+vcs_object_index_root.record_count]
  mov rdx,[rbx+vcs_publication.tx_sequence]
+ mov rcx,[rbx+vcs_publication.object_count]
  call validate_index_transactions_publication
  test eax,eax
  jnz .done
@@ -648,20 +649,30 @@ vcs_publication_commit:
  pop rbp
  ret
 
-; RDI=validated index records, RSI=count, RDX=candidate transaction sequence.
-; Reject authenticated entries that claim publication by a future transaction.
+; RDI=validated index records, RSI=count, RDX=candidate transaction sequence,
+; RCX=staged object count. Current-transaction records and staged objects are
+; both unique sets; the caller later proves every staged object maps to one
+; current record, so equal counts close the reverse mapping without allocation.
 validate_index_transactions_publication:
- xor ecx,ecx
+ xor r8d,r8d
+ xor r9d,r9d
 .index_transaction_loop:
- cmp rcx,rsi
- jae .index_transactions_ok
- mov rax,rcx
+ cmp r8,rsi
+ jae .index_transactions_complete
+ mov rax,r8
  shl rax,6
  add rax,rdi
- cmp [rax+vcs_object_index_record.transaction],rdx
+ mov r10,[rax+vcs_object_index_record.transaction]
+ cmp r10,rdx
  ja .index_transactions_corrupt
- inc rcx
+ jne .index_transaction_next
+ inc r9
+.index_transaction_next:
+ inc r8
  jmp .index_transaction_loop
+.index_transactions_complete:
+ cmp r9,rcx
+ jne .index_transactions_corrupt
 .index_transactions_ok:
  xor eax,eax
  ret
