@@ -5,6 +5,7 @@
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
+%include "inc/image.inc"
 
 extern jpeg_huff_decode_stream
 extern jpeg_receive_extend
@@ -139,72 +140,203 @@ jpeg_place_block:
     EPILOGUE_RESTORE rbx, r12
     ret
 
-; Expand one component plane to the maximum MCU sampling grid.
-; rdi=destination int16[], rsi=source int16[], rdx=component H,
-; rcx=component V, r8=max H, r9=max V.
-global jpeg_upsample_component
-jpeg_upsample_component:
+; ---------------------------------------------------------------------------
+; jpeg_upsample_row
+;   One output row of a component at full resolution, as the reference
+;   decoders make it ("fancy" upsampling): half width (2x1) or half width
+;   and height (2x2) by a triangle filter, 3/4 of the nearer sample and 1/4
+;   of the next, with their exact integer rounding; half height alone (1x2)
+;   likewise down only; full resolution copied; any other ratio repeats
+;   samples. Past the first and last real sample the edge one is repeated.
+;   IN:  rdi = JpegPlane*, esi = output y, rdx = int16 destination,
+;        ecx = samples wanted (at most the image's width)
+;   OUT: rax = 0, -EINVAL for a sampling factor of 0
+; ---------------------------------------------------------------------------
+%define U_Y     0
+%define U_SH    4                       ; 1, 2, or 0: samples repeated
+%define U_SV    8
+%define U_BV    12                      ; the bias of a column (1x2)
+%define U_B0    16                      ; an even output's bias, an odd's (2x)
+%define U_B1    20
+global jpeg_upsample_row
+jpeg_upsample_row:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 16
+    sub rsp, 40
     mov rbx, rdi
-    mov r12, rsi
-    mov r13d, edx
-    mov r14d, ecx
-    mov r15d, r8d
-    mov [rsp], r9d
-    test r13d, r13d
-    jz .sample_invalid
-    test r14d, r14d
-    jz .sample_invalid
-    cmp r13d, r15d
-    ja .sample_invalid
-    cmp r14d, [rsp]
-    ja .sample_invalid
-    mov eax, r13d
-    shl eax, 3
-    mov [rsp + 4], eax              ; source width
-    xor r10d, r10d                  ; output y
-.sample_y:
-    mov eax, [rsp]
-    shl eax, 3
-    cmp r10d, eax
-    jae .sample_done
+    mov r12, rdx
+    mov r13d, ecx
+    mov [rsp + U_Y], esi
+    movzx eax, byte [rbx + JpegPlane.h]
+    movzx ecx, byte [rbx + JpegPlane.max_h]
+    call ratio
+    js .invalid
+    mov [rsp + U_SH], eax
+    movzx eax, byte [rbx + JpegPlane.v]
+    movzx ecx, byte [rbx + JpegPlane.max_v]
+    call ratio
+    js .invalid
+    mov [rsp + U_SV], eax
+    test eax, eax
+    jz .nearest
+    cmp dword [rsp + U_SH], 0
+    je .nearest
+
+    ; the row, and the one beyond it towards this output row (2x down)
+    mov eax, [rsp + U_Y]
+    mov r10d, eax
+    mov r11d, eax
+    cmp dword [rsp + U_SV], 2
+    jne .rows
+    shr r10d, 1
+    lea r11d, [r10 - 1]
+    test eax, 1
+    jz .far_clamp
+    lea r11d, [r10 + 1]
+.far_clamp:
+    test r11d, r11d
+    jns .not_top
+    xor r11d, r11d
+.not_top:
+    mov eax, [rbx + JpegPlane.height]
+    dec eax
+    cmp r11d, eax
+    jle .rows
+    mov r11d, eax
+.rows:
+    mov r8d, [rbx + JpegPlane.stride]
     mov eax, r10d
-    imul eax, r14d
-    xor edx, edx
-    div dword [rsp]
-    imul eax, [rsp + 4]
-    mov r11d, eax                   ; source row base
-    xor ecx, ecx                    ; output x
-.sample_x:
-    mov eax, r15d
-    shl eax, 3
-    cmp ecx, eax
-    jae .sample_next_y
-    mov eax, ecx
-    imul eax, r13d
-    xor edx, edx
-    div r15d
-    add eax, r11d
-    movzx edx, word [r12 + rax * 2]
-    mov eax, r10d
-    imul eax, r15d
-    shl eax, 3
-    add eax, ecx
-    mov [rbx + rax * 2], dx
+    imul rax, r8
+    mov r14, [rbx + JpegPlane.data]
+    lea r14, [r14 + rax * 2]
+    mov eax, r11d
+    imul rax, r8
+    mov r15, [rbx + JpegPlane.data]
+    lea r15, [r15 + rax * 2]
+    ; a column is 3 x this + far: 4 x the sample when not halved down
+    cmp dword [rsp + U_SV], 2
+    jne .full_height
+    mov eax, [rsp + U_Y]
+    and eax, 1
+    inc eax
+    mov [rsp + U_BV], eax               ; 1 above, 2 below
+    mov dword [rsp + U_B0], 8
+    mov dword [rsp + U_B1], 7
+    jmp .biased
+.full_height:
+    mov dword [rsp + U_BV], 0
+    mov dword [rsp + U_B0], 4           ; (3a + b + 1) >> 2, x 4
+    mov dword [rsp + U_B1], 8           ; (3a + b + 2) >> 2, x 4
+.biased:
+    mov r9d, [rbx + JpegPlane.width]
+    dec r9d                             ; the last column
+    xor ecx, ecx
+    cmp dword [rsp + U_SH], 2
+    je .half
+.whole:
+    cmp ecx, r13d
+    jae .done
+    mov edx, ecx
+    call column
+    add eax, [rsp + U_BV]
+    sar eax, 2
+    mov [r12 + rcx * 2], ax
     inc ecx
-    jmp .sample_x
-.sample_next_y:
+    jmp .whole
+.half:
+    cmp ecx, r13d
+    jae .done
+    mov edx, ecx
+    shr edx, 1
+    cmp edx, r9d
+    jbe .inside
+    mov edx, r9d
+.inside:
+    call column
+    lea r10d, [rax + rax * 2]
+    mov eax, [rsp + U_B0]
+    test ecx, 1
+    jnz .right
+    test edx, edx                       ; even: the one to the left
+    jz .neighbour
+    dec edx
+    jmp .neighbour
+.right:
+    mov eax, [rsp + U_B1]               ; odd: the one to the right
+    cmp edx, r9d
+    jae .neighbour
+    inc edx
+.neighbour:
+    add r10d, eax
+    call column
+    add eax, r10d
+    sar eax, 4
+    mov [r12 + rcx * 2], ax
+    inc ecx
+    jmp .half
+
+.nearest:                               ; samples repeated
+    mov eax, [rsp + U_Y]
+    movzx ecx, byte [rbx + JpegPlane.v]
+    imul eax, ecx
+    xor edx, edx
+    movzx ecx, byte [rbx + JpegPlane.max_v]
+    div ecx
+    mov r8d, [rbx + JpegPlane.stride]
+    imul rax, r8
+    mov r14, [rbx + JpegPlane.data]
+    lea r14, [r14 + rax * 2]
+    xor r10d, r10d
+.near:
+    cmp r10d, r13d
+    jae .done
+    movzx eax, byte [rbx + JpegPlane.h]
+    imul eax, r10d
+    xor edx, edx
+    movzx ecx, byte [rbx + JpegPlane.max_h]
+    div ecx
+    movzx edx, word [r14 + rax * 2]
+    mov [r12 + r10 * 2], dx
     inc r10d
-    jmp .sample_y
-.sample_done:
+    jmp .near
+.done:
     xor eax, eax
-    jmp .sample_out
-.sample_invalid:
+    jmp .out
+.invalid:
     mov rax, -EINVAL
-.sample_out:
-    add rsp, 16
+.out:
+    add rsp, 40
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
+
+; eax = a factor, ecx = the largest -> eax = 1 the same, 2 half, 0 other;
+; SF set for a factor of 0
+ratio:
+    test eax, eax
+    jz .zero
+    test ecx, ecx
+    jz .zero
+    cmp eax, ecx
+    je .one
+    add eax, eax
+    cmp eax, ecx
+    je .two
+    xor eax, eax
+    ret
+.one:
+    mov eax, 1
+    ret
+.two:
+    mov eax, 2
+    ret
+.zero:
+    or eax, -1
+    ret
+
+; jpeg_upsample_row's: edx = a column -> eax = 3 x this row + the far one
+column:
+    movsx eax, word [r14 + rdx * 2]
+    lea eax, [rax + rax * 2]
+    movsx r8d, word [r15 + rdx * 2]
+    add eax, r8d
     ret
 
 ; Decode all blocks belonging to one component in an interleaved MCU.
