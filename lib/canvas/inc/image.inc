@@ -65,6 +65,21 @@ struc WebPInfo
     .xmp_len:        resq 1
 endstruc
 
+; image_meta (img/meta): orientation 1 to 8 (EXIF's), the ICC profile, the
+; Exif block (its TIFF header on) and the XMP packet, each a pointer into the
+; file or the arena and a length, 0 when absent
+%define IMAGE_META_ICC_LATER 1          ; a profile that needed an arena
+struc ImageMeta
+    .orientation:    resd 1
+    .flags:          resd 1
+    .icc:            resq 1
+    .icc_len:        resq 1
+    .exif:           resq 1
+    .exif_len:       resq 1
+    .xmp:            resq 1
+    .xmp_len:        resq 1
+endstruc
+
 struc WebPAnimationInfo
     .width:          resd 1
     .height:         resd 1
