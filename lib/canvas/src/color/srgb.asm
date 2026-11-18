@@ -1,168 +1,206 @@
 ; ============================================================================
-; sRGB — sRGB EOTF/EOTF^-1 (fixed-point 16.16, LUT + approximation)
+; sRGB — the sRGB transfer functions, exact (IEC 61966-2-1)
 ; ============================================================================
+; COL-01. srgb_eotf_f64 and srgb_oetf_f64 are the curves themselves, in
+; doubles (umath_pow_f64): encoded to linear, x / 12.92 up to 0.04045 then
+; ((x + 0.055) / 1.055)^2.4, and back, 12.92 x up to 0.0031308 then
+; 1.055 x^(1/2.4) - 0.055. srgb_init fills, once, the tables built from
+; them, each value rounded to nearest:
+;   srgb_to_linear_lut  256 u16: a code's linear value, of 65535
+;   linear_to_srgb_lut  4096 u16: linear i / 4095 encoded, of 65535
+;   srgb_encode_lut     65536 u8: a 16-bit linear value's code, exactly
+;                       round(255 x oetf(v / 65535)) (by each code's
+;                       threshold, eotf((k - 0.5) / 255))
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
-%include "inc/fixed.inc"
 
-section .text
+extern umath_pow_f64
 
-; LUTs built at init (256-entry u16 linear 0..65535)
 section .bss
 global srgb_to_linear_lut
 global linear_to_srgb_lut
+global srgb_encode_lut
 srgb_to_linear_lut: resw 256
 linear_to_srgb_lut: resw 4096
+srgb_encode_lut:    resb 65536
+srgb_ready:         resb 1
 
 section .text
 
 ; ---------------------------------------------------------------------------
+; srgb_eotf_f64 / srgb_oetf_f64
+;   IN:  xmm0 = 0 to 1, encoded / linear
+;   OUT: xmm0 = linear / encoded
+; ---------------------------------------------------------------------------
+global srgb_eotf_f64
+srgb_eotf_f64:
+    ucomisd xmm0, [rel c_eotf_knee]
+    ja .curve
+    divsd xmm0, [rel c_12_92]
+    ret
+.curve:
+    sub rsp, 8
+    addsd xmm0, [rel c_0_055]
+    divsd xmm0, [rel c_1_055]
+    movsd xmm1, [rel c_2_4]
+    call umath_pow_f64
+    add rsp, 8
+    ret
+
+global srgb_oetf_f64
+srgb_oetf_f64:
+    ucomisd xmm0, [rel c_oetf_knee]
+    ja .curve
+    mulsd xmm0, [rel c_12_92]
+    ret
+.curve:
+    sub rsp, 8
+    movsd xmm1, [rel c_inv_2_4]
+    call umath_pow_f64
+    mulsd xmm0, [rel c_1_055]
+    subsd xmm0, [rel c_0_055]
+    add rsp, 8
+    ret
+
+; ---------------------------------------------------------------------------
 ; srgb_init
-;   Build conversion LUTs
+;   The tables, the first time
+;   OUT: rax = 0
 ; ---------------------------------------------------------------------------
 global srgb_init
 srgb_init:
-    PROLOGUE_SAVE rbx, r12, r13
+    cmp byte [rel srgb_ready], 0
+    je .build
+    xor eax, eax
+    ret
+.build:
+    PROLOGUE_SAVE rbx, r12
+    sub rsp, 16                         ; the next code's threshold
     xor ebx, ebx
-.build_to_linear:
-    cmp ebx, 256
-    jae .build_to_srgb
-    ; c = i/255 in 16.16
-    mov eax, ebx
-    shl eax, 16
-    mov ecx, 255
-    xor edx, edx
-    div ecx
-    mov r12d, eax
-    ; linear = c <= 0.04045 ? c/12.92 : ((c+0.055)/1.055)^2.4
-    mov eax, 0x0A9E  ; 0.04045 * 65536 ≈ 2651? compute: 0.04045*65536=2650.9
-    cmp r12d, 2651
-    jbe .lin_low
-    ; approx ((c+0.055)/1.055)^2.4 via pow helper (fixed_pow_gamma22 path)
-    mov rdi, r12
-    call srgb_pow_24
-    jmp .store_lin
-.lin_low:
-    ; c * (1/12.92): 1/12.92 ≈ 0.077399 → *65536 ≈ 5072, (c*5072)>>16
-    mov eax, r12d
-    imul eax, 5072
-    shr eax, 16
-.store_lin:
-    ; to u16 0..65535
-    shr eax, 1  ; 16.16 -> ~17bit? keep simple: (lin_16_16 * 65535)>>16
-    mov ecx, eax
-    ; recompute properly: eax currently 16.16 fraction
+.to_linear:
+    cvtsi2sd xmm0, ebx
+    divsd xmm0, [rel c_255]
+    call srgb_eotf_f64
+    mulsd xmm0, [rel c_65535]
+    cvtsd2si eax, xmm0
     lea r11, [rel srgb_to_linear_lut]
-    mov [r11 + rbx*2], cx
+    mov [r11 + rbx * 2], ax
     inc ebx
-    jmp .build_to_linear
-.build_to_srgb:
-    ; coarse inverse LUT over 4096 linear steps
+    cmp ebx, 256
+    jb .to_linear
     xor ebx, ebx
-.inv_loop:
-    cmp ebx, 4096
-    jae .done
-    mov eax, ebx
-    shl eax, 4  ; 0..65520 ≈ 16.16 fraction (ebx/4096)
-    mov r12d, eax
-    call srgb_encode_one
+.to_srgb:
+    cvtsi2sd xmm0, ebx
+    divsd xmm0, [rel c_4095]
+    call srgb_oetf_f64
+    mulsd xmm0, [rel c_65535]
+    cvtsd2si eax, xmm0
+    call clamp_u16
     lea r11, [rel linear_to_srgb_lut]
-    mov [r11 + rbx*2], ax
+    mov [r11 + rbx * 2], ax
     inc ebx
-    jmp .inv_loop
-.done:
-    xor rax, rax
-    EPILOGUE_RESTORE rbx, r12, r13
+    cmp ebx, 4096
+    jb .to_srgb
+    xor ebx, ebx                        ; v
+    xor r12d, r12d                      ; its code
+    mov edi, 1
+    call threshold
+    movsd [rsp], xmm0
+.encode:
+    cmp r12d, 255
+    jae .store
+    cvtsi2sd xmm0, ebx
+    ucomisd xmm0, [rsp]
+    jb .store
+    inc r12d                            ; past the next code's threshold
+    cmp r12d, 255
+    jae .encode
+    lea edi, [r12 + 1]
+    call threshold
+    movsd [rsp], xmm0
+    jmp .encode
+.store:
+    lea r11, [rel srgb_encode_lut]
+    mov [r11 + rbx], r12b
+    inc ebx
+    cmp ebx, 65536
+    jb .encode
+    mov byte [rel srgb_ready], 1
+    xor eax, eax
+    add rsp, 16
+    EPILOGUE_RESTORE rbx, r12
+
+; edi = a code 1 to 255 -> xmm0 = the 16-bit linear value where it begins,
+; eotf((k - 0.5) / 255) x 65535
+threshold:
+    sub rsp, 8
+    cvtsi2sd xmm0, edi
+    subsd xmm0, [rel c_0_5]
+    divsd xmm0, [rel c_255]
+    call srgb_eotf_f64
+    mulsd xmm0, [rel c_65535]
+    add rsp, 8
     ret
 
-; ---------------------------------------------------------------------------
-; srgb_pow_24 — approximate x^2.4 for 0..1 in 16.16 (via x^2 * x^0.4 approx)
-;   IN: rdi = x 16.16 — OUT: rax = y 16.16
-; ---------------------------------------------------------------------------
-srgb_pow_24:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ; y = x*x (16.16)
-    mov rax, rbx
-    imul rax, rbx
-    shr rax, 16
-    mov rbx, rax
-    ; y *= cbrt-ish approx: use fixed sqrt twice blend (keeps monotonic)
-    mov rdi, rbx
-    call fix_sqrt
-    mov rbx, rax
-    mov rdi, rbx
-    call fix_sqrt  ; x^0.5 approx chain — documented approximation
-    ; result scaled: return (x^2 * sqrt(sqrt(x^2)))? simplified stable approx
-    mov rax, rbx
-    EPILOGUE_RESTORE rbx
-    ret
-
-; ---------------------------------------------------------------------------
-; srgb_encode_one — linear 16.16 fraction -> sRGB 16-bit
-; ---------------------------------------------------------------------------
-srgb_encode_one:
-    PROLOGUE_SAVE rbx
-    mov rbx, rdi
-    ; s = l <= 0.0031308 ? 12.92*l : 1.055*l^(1/2.4) - 0.055
-    cmp rbx, 205  ; 0.0031308*65536 ≈ 205.2
-    jbe .low
-    ; approx l^(1/2.4) via double sqrt chain scaled
-    mov rdi, rbx
-    call fix_sqrt
-    mov rdi, rax
-    call fix_sqrt
-    ; 1.055*x - 0.055
-    imul rax, 69175  ; 1.055*65536
-    shr rax, 16
-    sub rax, 3604    ; 0.055*65536
-    jmp .out
+; eax -> eax within 0 to 65535
+clamp_u16:
+    test eax, eax
+    jns .low
+    xor eax, eax
 .low:
-    mov rax, rbx
-    imul rax, 12
-    add rax, 847032  ; 12.92*65536 ≈ 846725? use 12.92 fixed
-    shr rax, 16
+    cmp eax, 65535
+    jbe .out
+    mov eax, 65535
 .out:
-    cmp rax, 0
-    cmovl rax, rbx
-    xor rbx, rbx
-    cmp rax, 65535
-    cmovg rax, rbx
-    ; NOTE: keep simple; exact curve verified by golden in C31
-    EPILOGUE_RESTORE rbx
     ret
 
 ; ---------------------------------------------------------------------------
-; srgb_to_linear_u8 — table lookup
+; srgb_to_linear_u8
+;   IN:  rdi = a code's byte
+;   OUT: eax = its linear value, of 65535
 ; ---------------------------------------------------------------------------
 global srgb_to_linear_u8
 srgb_to_linear_u8:
-    PROLOGUE
+    push rdi
+    call srgb_init
+    pop rdi
     movzx eax, byte [rdi]
     lea r11, [rel srgb_to_linear_lut]
-    movzx eax, word [r11 + rax*2]
-    leave
+    movzx eax, word [r11 + rax * 2]
     ret
 
 ; ---------------------------------------------------------------------------
 ; srgb_from_linear_u16
+;   IN:  edi = a linear value, of 65535
+;   OUT: eax = its code
 ; ---------------------------------------------------------------------------
 global srgb_from_linear_u16
 srgb_from_linear_u16:
-    PROLOGUE
-    shr rdi, 4  ; u16 -> 12-bit index
-    cmp rdi, 4095
-    jbe .ok
-    mov rdi, 4095
-.ok:
-    lea r11, [rel linear_to_srgb_lut]
-    movzx eax, word [r11 + rdi*2]
-    shr eax, 8  ; to u8
-    leave
+    push rdi
+    call srgb_init
+    pop rdi
+    mov eax, edi
+    call clamp_u16
+    lea r11, [rel srgb_encode_lut]
+    movzx eax, byte [r11 + rax]
     ret
+
+section .rodata
+align 8
+c_eotf_knee:    dq 0.04045
+c_oetf_knee:    dq 0.0031308
+c_12_92:        dq 12.92
+c_0_055:        dq 0.055
+c_1_055:        dq 1.055
+c_2_4:          dq 2.4
+c_inv_2_4:      dq 0.41666666666666666667
+c_255:          dq 255.0
+c_4095:         dq 4095.0
+c_65535:        dq 65535.0
+c_0_5:          dq 0.5
 
 section .data
 global srgb_version
-srgb_version: dq 0x010000
+srgb_version: dq 0x020000
