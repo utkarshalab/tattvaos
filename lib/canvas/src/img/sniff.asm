@@ -34,6 +34,8 @@ extern camera_decode
 extern pixbuf_premultiply
 extern image_meta
 extern pixbuf_orient
+extern icc_transform_build
+extern icc_transform_pixbuf
 
 section .text
 
@@ -84,8 +86,10 @@ image_sniff:
 
 ; Decode any self-describing supported image.
 ; IN rdi=arena, rsi=data, rdx=len, rcx=requested SVG width, r8=SVG height.
-; OUT rax=PixBuf* or 0. JPEG, PNG and WebP are turned upright by their
-; EXIF orientation (img/meta); TIFF's decoder does it itself.
+; OUT rax=PixBuf* or 0. JPEG, PNG, WebP and TIFF with an embedded ICC
+; profile of the matrix/TRC kind are turned into sRGB (color/icc_transform);
+; JPEG, PNG and WebP are turned upright by their EXIF orientation
+; (img/meta); TIFF's decoder does that itself.
 %define DEC_FORMAT ImageMeta_size       ; locals: an ImageMeta, the format
 %define DEC_FRAME  (((ImageMeta_size + 8 + 15) & ~15) + 8)
 global image_decode
@@ -276,17 +280,33 @@ image_decode:
     mov r14,rax
     mov eax,[rsp+DEC_FORMAT]
     cmp eax,IMAGE_FMT_JPEG
-    je .orient
+    je .meta
     cmp eax,IMAGE_FMT_PNG
-    je .orient
+    je .meta
     cmp eax,IMAGE_FMT_WEBP
+    je .meta
+    cmp eax,IMAGE_FMT_TIFF
     jne .premultiply
-.orient:
-    xor edi,edi                         ; the orientation needs no arena
+.meta:
+    mov rdi,rbx                         ; to join or inflate a profile
     mov rsi,r12
     mov rdx,r13
     lea rcx,[rsp]
     call image_meta
+    mov rsi,[rsp+ImageMeta.icc]
+    test rsi,rsi
+    jz .orient
+    mov rdi,rbx
+    mov rdx,[rsp+ImageMeta.icc_len]
+    call icc_transform_build
+    test rax,rax                        ; none needed, or not one we read
+    jz .orient
+    mov rdi,rax
+    mov rsi,r14
+    call icc_transform_pixbuf
+.orient:
+    cmp dword [rsp+DEC_FORMAT],IMAGE_FMT_TIFF
+    je .premultiply
     mov rdi,rbx
     mov rsi,r14
     mov edx,[rsp+ImageMeta.orientation]
