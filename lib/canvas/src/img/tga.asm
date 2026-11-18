@@ -67,7 +67,7 @@ tga_decode:
     pop r11
     pop r10
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     mov rdi,[rbx+PixBuf.data]
     mov r8,r10
