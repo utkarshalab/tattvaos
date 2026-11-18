@@ -421,6 +421,7 @@ ut_input_device_info:
 HOST_NONE ut_input_register_callback
 HOST_NONE ut_input_unregister_callback
 HOST_NONE ut_power_register_callback
+HOST_NONE ut_fs_read
 HOST_NONE ut_fs_open
 HOST_NONE ut_fs_pwrite
 HOST_NONE ut_fs_close
