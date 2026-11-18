@@ -116,6 +116,13 @@ vcs_publication_commit:
  call vcs_object_index_root_verify
  test eax,eax
  jnz .done
+ mov rax,[rbx+vcs_publication.index_root]
+ mov rdi,[rax+vcs_object_index_root.records]
+ mov rsi,[rax+vcs_object_index_root.record_count]
+ mov rdx,[rbx+vcs_publication.tx_sequence]
+ call validate_index_transactions_publication
+ test eax,eax
+ jnz .done
  mov rax,[rbx+vcs_publication.ownership_root]
  test rax,rax
  jz .usage
@@ -639,6 +646,27 @@ vcs_publication_commit:
  pop r12
  pop rbx
  pop rbp
+ ret
+
+; RDI=validated index records, RSI=count, RDX=candidate transaction sequence.
+; Reject authenticated entries that claim publication by a future transaction.
+validate_index_transactions_publication:
+ xor ecx,ecx
+.index_transaction_loop:
+ cmp rcx,rsi
+ jae .index_transactions_ok
+ mov rax,rcx
+ shl rax,6
+ add rax,rdi
+ cmp [rax+vcs_object_index_record.transaction],rdx
+ ja .index_transactions_corrupt
+ inc rcx
+ jmp .index_transaction_loop
+.index_transactions_ok:
+ xor eax,eax
+ ret
+.index_transactions_corrupt:
+ mov eax,VCS_ERR_CORRUPT
  ret
 
 ids_equal_publication:
