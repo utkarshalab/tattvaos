@@ -99,7 +99,8 @@ superblock, and every staged edge must belong to it. The complete kind-1 ref roo
 is also verified against the same generation and superblock. Direct refs must
 resolve to indexed commits and own them through exact ref-key ownership edges,
 while symbolic workspace `HEAD` must resolve to a branch key in that same
-catalog without adding a duplicate owner. The coordinator then passes
+catalog without adding a duplicate owner. An attached branch target must also
+equal the superblock HEAD commit. The coordinator then passes
 overflow-safe object, extent and ownership counts to backend reservation, then
 drives object staging, ownership staging, the repository root
 plus all three verified catalog-root hashes, flush and atomic publish. Failures
