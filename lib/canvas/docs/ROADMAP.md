@@ -579,7 +579,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 108 files of every supported format against a reference decoder, exact for lossless, a PSNR floor of 45 dB for lossy (every lossy file is above 51: JPEG chroma is upsampled as the reference does, `jpeg_upsample_row`); `fuzz_media.py` fuzzes every format |
+| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 135 files of every format the reference library writes (TIFF, PCX, ICO, DDS, QOI, PGM, PBM and more since QA-09) against a reference decoder, exact for lossless, a PSNR floor of 45 dB for lossy (every lossy file is above 51: JPEG chroma is upsampled as the reference does, `jpeg_upsample_row`); `fuzz_media.py` fuzzes every format |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ✓ `img/sniff` `image_decode`: the format from its bytes (PNG, JPEG, GIF, BMP, TGA, PPM, QOI, WebP, TIFF, SVG and more), then its decoder; `compare_images.py` against a reference decoder and `fuzz_media.py` in `make check` |
 | MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | ✓ `img/meta` `image_meta`: orientation, the ICC profile (JPEG chunks joined in order, PNG iCCP inflated, checked with `icc_probe` and its size) and XMP from JPEG, PNG, WebP and TIFF; `pixbuf_orient` all eight; `image_decode` turns JPEG, PNG and WebP upright. `test_meta` (mutation-checked) and `compare_images.py` (each orientation in each format against the reference decoder turned upright). The profile is applied by `image_decode` (COL-02) |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
@@ -849,7 +849,7 @@ All items run on-device, opt-in, behind capability gates.
 | QA-06 | Hostile-client conformance cases | P2 | |
 | QA-07 | Soak: churn, hotplug, quota; 24-hour then 30-day | P3 | ◐ `tests/soak` |
 | QA-08 | Property-based tests for region math and handle tables | P2 | ✓ `test_region` (four seeds, 60 random adds, subtracts and intersects each on a 16x16 grid against a bitmap, every point checked after each) and `test_handle` (four seeds, 400 random creates, destroys and resolves each against a model: live handles resolve, dead ones never, though their slots be used again; full refuses; the count) |
-| QA-09 | Differential decoder tests against reference outputs | P2 | |
+| QA-09 | Differential decoder tests against reference outputs | P2 | ✓ `compare_images.py`: every format the reference library writes, in the encodings it writes (TIFF uncompressed, LZW, PackBits, deflate, RGBA, grey, 16-bit, palette; PCX RGB, palette, grey; ICO; DDS uncompressed, DXT1, DXT5, BC5 and, from it, BC4 and the ATI1/ATI2 headers; QOI; PGM, PBM; run-length TGA; BMP with alpha; PNG 16-bit grey, grey with alpha), all exact. It found and `fuzz_media.py` now seeds: DXT decoding crashed (the image pointer overlapped a counter) and expanded 565 colours without their low bits; PCX was refused (a row size read as 64 bits) and then repeated each row's first byte; palette TIFF was refused (the colour map check overwrote the width) and then decoded as grey; run-length TGA repeated a raw packet's first pixel. BC4 and BC5 (and DX10 headers) decoded since |
 | QA-10 | Deterministic multi-client race tests | P3 | |
 | QA-11 | Simulated vblank clocks for timing tests | P2 | |
 | QA-12 | Chaos tests: client kills, hotplugs, memory pressure while rendering | P3 | |
