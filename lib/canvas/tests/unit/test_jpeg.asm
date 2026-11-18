@@ -4,6 +4,7 @@
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
+%include "inc/errors.inc"
 %include "inc/image.inc"
 %include "inc/struct_offsets.inc"
 
@@ -18,7 +19,7 @@ extern jpeg_receive_extend
 extern jpeg_expect_restart
 extern jpeg_decode_block
 extern jpeg_ycbcr_to_bgra
-extern jpeg_upsample_component
+extern jpeg_upsample_row
 extern jpeg_decode_component_mcu
 extern gif_inspect_animation
 extern gif_apply_disposal
@@ -352,40 +353,72 @@ test_jpeg_color:
     ret
 
 global test_jpeg_sampling
+; jpeg_upsample_row against the reference decoders' formulas, worked out
+; apart from it: a 4x2 plane (stride 8, the rest 999, never read) at 2x2,
+; 2x1, 1x2 and a third across (samples repeated), 7 samples a row wanted at
+; half width (the last half-sample dropped), and all 8 once; a factor of 0
+; refused
 test_jpeg_sampling:
-    lea rdi, [rel sample_source]
-    xor eax, eax
-.sample_init:
-    mov [rdi + rax * 2], ax
-    inc eax
-    cmp eax, 64
-    jb .sample_init
-    lea rdi, [rel sample_output]
-    lea rsi, [rel sample_source]
-    mov edx, 1
-    mov ecx, 1
-    mov r8d, 2
-    mov r9d, 2
-    call jpeg_upsample_component
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8
+    lea r12, [rel up_cases]
+    lea rax, [rel up_plane]
+    mov [rel up_desc + JpegPlane.data], rax
+    mov dword [rel up_desc + JpegPlane.stride], 8
+    mov dword [rel up_desc + JpegPlane.width], 4
+    mov dword [rel up_desc + JpegPlane.height], 2
+.case:
+    mov eax, [r12]                      ; h, v, max h, max v
     test eax, eax
-    jnz .sampling_fail
-    cmp word [rel sample_output], 0
-    jne .sampling_fail
-    cmp word [rel sample_output + 2], 0
-    jne .sampling_fail
-    cmp word [rel sample_output + 4], 1
-    jne .sampling_fail
-    cmp word [rel sample_output + 32], 0
-    jne .sampling_fail
-    cmp word [rel sample_output + 64], 8
-    jne .sampling_fail
-    cmp word [rel sample_output + 510], 63
-    jne .sampling_fail
+    jz .refuse
+    mov [rel up_desc + JpegPlane.h], al
+    mov [rel up_desc + JpegPlane.v], ah
+    shr eax, 16
+    mov [rel up_desc + JpegPlane.max_h], al
+    mov [rel up_desc + JpegPlane.max_v], ah
+    movzx ebx, byte [r12 + 4]           ; rows
+    movzx r13d, byte [r12 + 5]          ; samples a row
+    lea r15, [r12 + 8]                  ; expected
+    xor r14d, r14d                      ; y
+.row:
+    lea rdi, [rel up_desc]
+    mov esi, r14d
+    lea rdx, [rel up_out]
+    mov ecx, r13d
+    call jpeg_upsample_row
+    test rax, rax
+    jnz .fail
+    xor ecx, ecx
+.sample:
+    lea rdx, [rel up_out]
+    movzx edx, word [rdx + rcx * 2]
+    cmp dx, [r15 + rcx * 2]
+    jne .fail
+    inc ecx
+    cmp ecx, r13d
+    jb .sample
+    lea r15, [r15 + r13 * 2]
+    inc r14d
+    cmp r14d, ebx
+    jb .row
+    mov r12, r15
+    jmp .case
+.refuse:
+    mov byte [rel up_desc + JpegPlane.h], 0
+    lea rdi, [rel up_desc]
+    xor esi, esi
+    lea rdx, [rel up_out]
+    mov ecx, 4
+    call jpeg_upsample_row
+    cmp rax, -EINVAL
+    jne .fail
     xor eax, eax
-    ret
-.sampling_fail:
+    jmp .out
+.fail:
     mov eax, 1
-    ret
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 global test_jpeg_component_mcu
 test_jpeg_component_mcu:
@@ -768,6 +801,30 @@ test_dng_tiled_decode:
     ret
 
 section .rodata
+up_plane:
+    dw 3, 41, 90, 250, 999, 999, 999, 999
+    dw 17, 200, 6, 129, 999, 999, 999, 999
+; h, v, max h, max v; rows, samples a row; then each row expected
+up_cases:
+    db 1, 1, 2, 2, 4, 7, 0, 0           ; 2x2
+    dw 3, 12, 32, 53, 78, 130, 210
+    dw 7, 25, 62, 78, 72, 107, 182
+    dw 14, 50, 124, 127, 60, 60, 126
+    dw 17, 63, 154, 151, 55, 37, 98
+    db 1, 2, 2, 2, 2, 7, 0, 0           ; 2x1
+    dw 3, 13, 31, 53, 78, 130, 210
+    dw 17, 63, 154, 152, 54, 37, 98
+    db 1, 2, 2, 2, 1, 8, 0, 0           ; 2x1, all 8: the right edge
+    dw 3, 13, 31, 53, 78, 130, 210, 250
+    db 2, 1, 2, 2, 4, 4, 0, 0           ; 1x2
+    dw 3, 41, 90, 250
+    dw 7, 81, 69, 220
+    dw 13, 160, 27, 159
+    dw 17, 200, 6, 129
+    db 1, 1, 3, 1, 2, 7, 0, 0           ; a third across: repeated
+    dw 3, 3, 3, 41, 41, 41, 90
+    dw 17, 17, 17, 200, 200, 200, 6
+    dd 0
 jpeg_soi:      db 0xFF, 0xD8
 not_jpeg:      db 0x89, 0x50
 ; Two 1x1 raw CFA tiles exercise tile-array lookup and horizontal placement.
@@ -978,7 +1035,9 @@ ac_eob_table:   resb HuffTable_size
 dc_predictor:   resd 1
 color_output:   resd 3
 alignb 16
-sample_source:  resw 64
+alignb 8
+up_desc:        resb JpegPlane_size
+up_out:         resw 8
 sample_output:  resw 256
 alignb 8
 gif_info:       resb GifAnimationInfo_size
