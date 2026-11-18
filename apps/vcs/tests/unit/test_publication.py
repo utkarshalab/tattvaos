@@ -141,8 +141,15 @@ for index, value in enumerate(objects):
 chunk_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 1)
 file_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 2)
 transaction_owner = array(hashlib.sha256(b"publication transaction 11").digest())
+commit_payload = b"canonical head commit"
+commit_id = oid(4, commit_payload)
+ref_name = b"main"
+branch_key = hashlib.sha256(b"UVCSRFK1" + struct.pack("<HBB", 1, 1,
+                                                       len(ref_name))
+                                + ref_name).digest()
 edge_values = [(1, 1, bytes(objects[file_index].object_id),
-                bytes(objects[chunk_index].object_id))]
+                bytes(objects[chunk_index].object_id)),
+               (2, 4, branch_key, commit_id)]
 for value in objects:
     edge_values.append((5, value.object_type, bytes(transaction_owner),
                         bytes(value.object_id)))
@@ -160,15 +167,9 @@ ownership_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 2, 0, 9,
 ownership_hash = array(hashlib.sha256(ownership_frame + bytes(edges)).digest())
 ownership_root = OwnershipRoot(edges, len(edges), 9, ownership_hash)
 
-commit_payload = b"canonical head commit"
-commit_id = oid(4, commit_payload)
-ref_name = b"main"
 branch_record = (struct.pack("<BBHIQ", 1, len(ref_name), 1, 0, 7)
                  + commit_id + ref_name
                  + bytes((-len(ref_name)) & 7))
-branch_key = hashlib.sha256(b"UVCSRFK1" + struct.pack("<HBB", 1, 1,
-                                                       len(ref_name))
-                                + ref_name).digest()
 head_name = b"HEAD"
 head_record = (struct.pack("<BBHIQ", 4, len(head_name), 2, 0, 3)
                + branch_key + head_name + bytes((-len(head_name)) & 7))
@@ -273,7 +274,7 @@ success_status = lib.vcs_publication_commit(ctypes.byref(publication))
 assert success_status == OK
 assert publication.result_phase == COMMITTED
 assert state["events"] == ["begin", "object", "object", "edge", "edge",
-                           "edge", "root", "flush", "publish"]
+                           "edge", "edge", "root", "flush", "publish"]
 
 for failed, phase in (("begin", NONE), ("object", ABORTED), ("edge", ABORTED),
                       ("root", ABORTED), ("flush", ABORTED)):
@@ -399,6 +400,33 @@ for target_offset in (16, len(branch_record) + 16):
     publication.ref_root = ctypes.pointer(dangling_root)
     assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
     assert publication.result_phase == 0xBAD and state["events"] == []
+
+# A branch cannot keep a commit live unless the authenticated ownership catalog
+# contains the exact ref-key-to-commit edge.
+ref_edge_index = next(index for index, edge in enumerate(edges)
+                      if edge.owner_kind == 2)
+without_ref_values = [bytes(edge) for index, edge in enumerate(edges)
+                      if index != ref_edge_index]
+without_ref_edges = (Edge * len(without_ref_values))()
+for edge, value in zip(without_ref_edges, without_ref_values):
+    ctypes.memmove(ctypes.byref(edge), value, len(value))
+without_ref_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 2, 0, 9,
+                                                ctypes.sizeof(without_ref_edges))
+without_ref_hash = array(hashlib.sha256(without_ref_frame
+                                        + bytes(without_ref_edges)).digest())
+without_ref_root = OwnershipRoot(without_ref_edges, len(without_ref_edges), 9,
+                                 without_ref_hash)
+without_ref_candidate = bytearray(root_image)
+without_ref_candidate[120:152] = bytes(without_ref_hash)
+without_ref_candidate[480:512] = hashlib.sha256(
+    without_ref_candidate[:480]).digest()
+without_ref_candidate_buffer = array(without_ref_candidate)
+backend, state = backend_for()
+publication = request(backend)
+publication.root = without_ref_candidate_buffer
+publication.ownership_root = ctypes.pointer(without_ref_root)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
 
 # Publication must be the exact successor of the recovered repository root and
 # consume that root's advertised transaction sequence before begin.
@@ -606,4 +634,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated roots/ref closure, extent chains, transaction pins, atomic failures)")
+print("VCS publication: PASS (authenticated roots/ref ownership, extent chains, transaction pins, atomic failures)")
