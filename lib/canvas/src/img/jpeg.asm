@@ -16,8 +16,8 @@ extern jpeg_huff_build
 extern jpeg_bits_init
 extern jpeg_decode_block
 extern jpeg_decode_component_mcu
-extern jpeg_upsample_component
-extern jpeg_write_color_mcu
+extern jpeg_upsample_row
+extern jpeg_ycbcr_to_bgra
 extern jpeg_expect_restart
 
 %define JPEG_SOI       0xD8FF
@@ -725,9 +725,19 @@ jpeg_decode_scan:
 ; ---------------------------------------------------------------------------
 ; jpeg_decode_color_scan — interleaved three-component baseline scans
 ; ---------------------------------------------------------------------------
+; Each component's MCU blocks are kept for the whole image at its own
+; resolution (a JpegPlane each), then every output row is upsampled from
+; them (jpeg_upsample_row: chroma interpolated, as the reference decoders
+; do, across MCU edges too) and converted.
+%define CS_PLANES   80                  ; three JpegPlanes
+%define CS_MCUS_X   (CS_PLANES + 3 * JpegPlane_size)
+%define CS_MCUS_Y   (CS_MCUS_X + 4)
+%define CS_ROWS     (CS_MCUS_X + 8)     ; Y, Cb and Cr rows, int16
+%define CS_Y        (CS_MCUS_X + 16)
+%define CS_FRAME    (((CS_Y + 4 + 15) & ~15))
 jpeg_decode_color_scan:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
-    sub rsp, 80
+    sub rsp, CS_FRAME
     mov r13, rdi
     cmp byte [r13 + JpegImage.scan_count], 3
     jne .color_fail
@@ -758,9 +768,9 @@ jpeg_decode_color_scan:
     mov dword [rsp + 64], 0         ; decoded MCU count
     mov dword [rsp + 68], 0         ; expected RST sequence
 
-    ; Three maximum-size source planes plus three expanded planes.
+    ; Three maximum-size MCU planes, then each component's whole plane.
     mov rdi, [r13 + JpegImage.arena]
-    mov esi, 12288
+    mov esi, 6144
     call arena_alloc
     test rax, rax
     jz .color_oom
@@ -769,6 +779,65 @@ jpeg_decode_color_scan:
     mov rbx, [r13 + JpegImage.pixbuf]
     test rbx, rbx
     jz .color_fail
+    mov eax, [r13 + JpegImage.width]
+    add eax, [rsp + 56]
+    dec eax
+    xor edx, edx
+    div dword [rsp + 56]
+    mov [rsp + CS_MCUS_X], eax
+    mov eax, [r13 + JpegImage.height]
+    add eax, [rsp + 60]
+    dec eax
+    xor edx, edx
+    div dword [rsp + 60]
+    mov [rsp + CS_MCUS_Y], eax
+    xor r15d, r15d                      ; component
+.color_plane:
+    imul eax, r15d, JpegPlane_size
+    lea r14, [rsp + CS_PLANES + rax]
+    movzx eax, byte [r13 + JpegImage.component_h + r15]
+    mov [r14 + JpegPlane.h], al
+    movzx eax, byte [r13 + JpegImage.component_v + r15]
+    mov [r14 + JpegPlane.v], al
+    movzx eax, byte [r13 + JpegImage.max_h]
+    mov [r14 + JpegPlane.max_h], al
+    movzx eax, byte [r13 + JpegImage.max_v]
+    mov [r14 + JpegPlane.max_v], al
+    movzx eax, byte [r14 + JpegPlane.h] ; MCU columns x h x 8 samples a row
+    imul eax, [rsp + CS_MCUS_X]
+    shl eax, 3
+    mov [r14 + JpegPlane.stride], eax
+    movzx eax, byte [r14 + JpegPlane.h] ; width x h / max h, rounded up
+    imul eax, [r13 + JpegImage.width]
+    movzx ecx, byte [r14 + JpegPlane.max_h]
+    add eax, ecx
+    dec eax
+    xor edx, edx
+    div ecx
+    mov [r14 + JpegPlane.width], eax
+    movzx eax, byte [r14 + JpegPlane.v]
+    imul eax, [r13 + JpegImage.height]
+    movzx ecx, byte [r14 + JpegPlane.max_v]
+    add eax, ecx
+    dec eax
+    xor edx, edx
+    div ecx
+    mov [r14 + JpegPlane.height], eax
+    movzx eax, byte [r14 + JpegPlane.v] ; MCU rows x v x 8 rows, 2 bytes
+    imul eax, [rsp + CS_MCUS_Y]
+    shl eax, 3
+    mov ecx, [r14 + JpegPlane.stride]
+    imul rax, rcx
+    lea rsi, [rax + rax]
+    mov rdi, [r13 + JpegImage.arena]
+    call arena_alloc
+    test rax, rax
+    jz .color_oom
+    js .color_oom
+    mov [r14 + JpegPlane.data], rax
+    inc r15d
+    cmp r15d, 3
+    jb .color_plane
     mov dword [rsp + 48], 0         ; MCU y
 .color_mcu_y:
     mov eax, [r13 + JpegImage.height]
@@ -831,34 +900,38 @@ jpeg_decode_color_scan:
     test rax, rax
     jnz .color_fail
 
-    mov ecx, [rsp + 52]
+    mov ecx, [rsp + 52]                 ; into its place in the whole plane
     lea rax, [rcx * 8]
     shl rax, 8
     lea rsi, [r12 + rax]
-    lea rdi, [r12 + 6144 + rax]
-    movzx edx, byte [r13 + JpegImage.component_h + rcx]
-    movzx ecx, byte [r13 + JpegImage.component_v + rcx]
-    movzx r8d, byte [r13 + JpegImage.max_h]
-    movzx r9d, byte [r13 + JpegImage.max_v]
-    call jpeg_upsample_component
-    test rax, rax
-    jnz .color_fail
+    imul eax, ecx, JpegPlane_size
+    lea r14, [rsp + CS_PLANES + rax]
+    movzx r8d, byte [r14 + JpegPlane.h]
+    movzx r9d, byte [r14 + JpegPlane.v]
+    mov r10d, [r14 + JpegPlane.stride]
+    mov eax, [rsp + 48]                 ; MCU row x v x 8 rows down
+    imul eax, r9d
+    shl eax, 3
+    imul rax, r10
+    mov r11d, [rsp + 44]                ; MCU column x h x 8 across
+    imul r11d, r8d
+    shl r11d, 3
+    add rax, r11
+    mov rdi, [r14 + JpegPlane.data]
+    lea rdi, [rdi + rax * 2]
+    shl r9d, 3                          ; v x 8 rows of h x 16 bytes
+    shl r8d, 4
+    lea r11, [r10 + r10]
+    sub r11, r8
+.color_copy:
+    mov ecx, r8d
+    rep movsb
+    add rdi, r11
+    dec r9d
+    jnz .color_copy
     inc dword [rsp + 52]
     jmp .color_component
 .color_emit:
-    mov rdi, rbx
-    lea rsi, [r12 + 6144]
-    lea rdx, [r12 + 8192]
-    lea rcx, [r12 + 10240]
-    mov r8d, [rsp + 44]
-    imul r8d, [rsp + 56]
-    mov r9d, [rsp + 48]
-    imul r9d, [rsp + 60]
-    mov r10d, [rsp + 56]
-    mov r11d, [rsp + 60]
-    call jpeg_write_color_mcu
-    test rax, rax
-    jnz .color_fail
     inc dword [rsp + 64]
     mov ecx, [r13 + JpegImage.restart]
     test ecx, ecx
@@ -898,7 +971,50 @@ jpeg_decode_color_scan:
 .color_next_mcu_row:
     inc dword [rsp + 48]
     jmp .color_mcu_y
-.color_ok:
+.color_ok:                              ; every row upsampled and converted
+    mov esi, [r13 + JpegImage.width]
+    imul rsi, rsi, 6
+    mov rdi, [r13 + JpegImage.arena]
+    call arena_alloc
+    test rax, rax
+    jz .color_oom
+    js .color_oom
+    mov [rsp + CS_ROWS], rax
+    mov dword [rsp + CS_Y], 0
+.color_row:
+    mov eax, [rsp + CS_Y]
+    cmp eax, [r13 + JpegImage.height]
+    jae .color_done
+    xor r15d, r15d
+.color_row_plane:
+    imul eax, r15d, JpegPlane_size
+    lea rdi, [rsp + CS_PLANES + rax]
+    mov esi, [rsp + CS_Y]
+    mov eax, [r13 + JpegImage.width]
+    imul eax, r15d
+    mov rdx, [rsp + CS_ROWS]
+    lea rdx, [rdx + rax * 2]
+    mov ecx, [r13 + JpegImage.width]
+    call jpeg_upsample_row
+    test rax, rax
+    jnz .color_fail
+    inc r15d
+    cmp r15d, 3
+    jb .color_row_plane
+    mov eax, [rsp + CS_Y]
+    imul rax, [rbx + PixBuf.stride]
+    add rax, [rbx + PixBuf.data]
+    mov rdi, rax
+    mov rsi, [rsp + CS_ROWS]
+    mov r8d, [r13 + JpegImage.width]
+    lea rdx, [rsi + r8 * 2]
+    lea rcx, [rdx + r8 * 2]
+    call jpeg_ycbcr_to_bgra
+    test rax, rax
+    jnz .color_fail
+    inc dword [rsp + CS_Y]
+    jmp .color_row
+.color_done:
     xor eax, eax
     jmp .color_out
 .color_unsupported:
@@ -910,7 +1026,7 @@ jpeg_decode_color_scan:
 .color_fail:
     mov rax, -EINVAL
 .color_out:
-    add rsp, 80
+    add rsp, CS_FRAME
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
