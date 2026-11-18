@@ -16,6 +16,7 @@ decoders; a broken decoder lands far below the floor.
 
 Development-machine test tooling only; not part of any OS image.
 """
+import io
 import math
 import os
 import random
@@ -25,7 +26,7 @@ import sys
 import tempfile
 
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageCms, ImageOps
 
 # Canvas upsamples chroma as the reference does, so what is left is the
 # IDCT's and the colour conversion's rounding: every lossy file is above
@@ -239,6 +240,7 @@ def build_corpus(d):
     add("image.ppm", "exact", lambda p: im.save(p, "PPM"))
     add("image.ff", "exact", lambda p: write_farbfeld(p, ima))
     vp8l_variants(add)
+    icc_variants(add)
     # MED-03: every EXIF orientation but 1, an image wider than it is tall,
     # in each format whose decode is turned upright by it
     turned = synth(37, 23, 13)
@@ -290,6 +292,92 @@ def vp8l_variants(add):
                                                    quality=100, method=m))
 
 
+D50 = (0.9642, 1.0, 0.8249)
+
+
+def colorants(primaries, white):
+    """The D50 (Bradford-adapted) colorants of RGB primaries and a white,
+    each an xy chromaticity: the matrix columns of an ICC RGB profile."""
+    def xyz(x, y):
+        return np.array([x / y, 1.0, (1 - x - y) / y])
+    p = np.array([xyz(*c) for c in primaries]).T
+    w = xyz(*white)
+    m = p * np.linalg.solve(p, w)
+    brad = np.array([[0.8951, 0.2664, -0.1614], [-0.7502, 1.7135, 0.0367],
+                     [0.0389, -0.0685, 1.0296]])
+    adapt = np.linalg.inv(brad) @ np.diag((brad @ np.array(D50)) / (brad @ w)) @ brad
+    return [tuple(c) for c in (adapt @ m).T]
+
+
+def make_icc(curves, xyz=None):
+    """An ICC v2 display profile of the matrix/TRC kind: RGB with three
+    colorants (xyz) and three curves, or grey with one. A curve is
+    ("gamma", g), ("table", [0..65535, ...]) or ("para", function, [params])."""
+    def s15(v):
+        return struct.pack(">i", round(v * 65536))
+
+    def tag_xyz(v):
+        return b"XYZ " + bytes(4) + b"".join(s15(c) for c in v)
+
+    def tag_curve(c):
+        if c[0] == "gamma":
+            return b"curv" + bytes(4) + struct.pack(">IH", 1, round(c[1] * 256)) + bytes(2)
+        if c[0] == "table":
+            t = b"curv" + bytes(4) + struct.pack(">I", len(c[1]))
+            t += b"".join(struct.pack(">H", v) for v in c[1])
+            return t + bytes(-len(t) % 4)
+        return b"para" + bytes(4) + struct.pack(">HH", c[1], 0) + b"".join(s15(v) for v in c[2])
+
+    desc = b"desc" + bytes(4) + struct.pack(">I", 5) + b"test\0" + bytes(4 + 4 + 2 + 1 + 67)
+    desc += bytes(-len(desc) % 4)
+    tags = [(b"desc", desc), (b"wtpt", tag_xyz(D50))]
+    if xyz is None:
+        tags.append((b"kTRC", tag_curve(curves[0])))
+    else:
+        for n, v in zip((b"rXYZ", b"gXYZ", b"bXYZ"), xyz):
+            tags.append((n, tag_xyz(v)))
+        for n, c in zip((b"rTRC", b"gTRC", b"bTRC"), curves):
+            tags.append((n, tag_curve(c)))
+    offset = 128 + 4 + 12 * len(tags)
+    table, data = b"", b""
+    for name, body in tags:
+        table += name + struct.pack(">II", offset + len(data), len(body))
+        data += body
+    size = offset + len(data)
+    header = struct.pack(">I", size) + bytes(4) + struct.pack(">I", 0x02100000)
+    header += b"mntr" + (b"GRAY" if xyz is None else b"RGB ") + b"XYZ " + bytes(12)
+    header += b"acsp" + bytes(24) + b"".join(s15(c) for c in D50)
+    header += bytes(128 - len(header))
+    return header + struct.pack(">I", len(tags)) + table + data
+
+
+def icc_variants(add):
+    """COL-02: images with embedded profiles, turned into sRGB; the
+    reference is the colour management library's sRGB transform."""
+    d65 = (0.3127, 0.3290)
+    p3 = colorants([(0.680, 0.320), (0.265, 0.690), (0.150, 0.060)], d65)
+    adobe = colorants([(0.640, 0.330), (0.210, 0.710), (0.150, 0.060)], d65)
+    rec2020 = colorants([(0.708, 0.292), (0.170, 0.797), (0.131, 0.046)], d65)
+    srgb_curve = ("para", 3, [2.4, 1 / 1.055, 0.055 / 1.055, 1 / 12.92, 0.04045])
+    table = ("table", [round(65535 * (i / 1023) ** 1.8) for i in range(1024)])
+    big = ("table", [round(65535 * (i / 29999) ** 2.0) for i in range(30000)])
+    im = synth(57, 41, 31)
+    grey = im.convert("L")
+
+    def save(name, image, fmt, icc, **kw):
+        add(name, "lossy", lambda p: image.save(p, fmt, icc_profile=icc, **kw))
+    save("icc_p3.png", im, "PNG", make_icc([srgb_curve] * 3, p3))
+    save("icc_adobe.jpg", im, "JPEG", make_icc([("gamma", 2.2)] * 3, adobe), quality=95)
+    save("icc_rec2020_table.webp", im, "WEBP", make_icc([table] * 3, rec2020),
+         lossless=True)
+    save("icc_grey.png", grey, "PNG", make_icc([("para", 0, [1.8])]))
+    save("icc_para4.tif", im, "TIFF", make_icc(
+        [("para", 4, [2.2, 0.95, 0.05, 0.08, 0.06, 0.0, 0.01])] * 3, p3))
+    save("icc_srgb.png", im, "PNG",
+         ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes())
+    save("icc_two_chunks.jpg", im, "JPEG", make_icc([big] * 3, adobe), quality=95)
+
+
 def canvas_decode(tool, path, out):
     r = subprocess.run([tool, path, out], capture_output=True, timeout=60)
     if r.returncode != 0:
@@ -309,6 +397,12 @@ def reference_decode(path):
         ref = read_farbfeld(path)
     else:
         im = ImageOps.exif_transpose(Image.open(path))   # upright, as Canvas
+        icc = im.info.get("icc_profile")
+        if icc:                                          # in sRGB, as Canvas
+            im = ImageCms.profileToProfile(
+                im, ImageCms.ImageCmsProfile(io.BytesIO(icc)),
+                ImageCms.createProfile("sRGB"), outputMode="RGB",
+                renderingIntent=ImageCms.Intent.RELATIVE_COLORIMETRIC)
         ref = np.asarray(im.convert("RGBA")).astype(np.int64)
     t = ref[..., :3] * ref[..., 3:4] + 128
     ref[..., :3] = (t + (t >> 8)) >> 8
