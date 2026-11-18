@@ -17,6 +17,7 @@ extern jpeg_bits_init
 extern jpeg_decode_block
 extern jpeg_decode_component_mcu
 extern jpeg_upsample_row
+extern jpeg_decode_progressive
 extern jpeg_ycbcr_to_bgra
 extern jpeg_expect_restart
 
@@ -29,33 +30,11 @@ extern jpeg_expect_restart
 %define JPEG_DRI       0xDDFF
 %define JPEG_SOS       0xDAFF
 %define JPEG_APP0      0xE0FF
-%define JPEG_HUFF_TABLE_SIZE 1556
+; JPEG_HUFF_TABLE_SIZE: inc/image.inc
 
 section .text
 
-struc JpegImage
-    .width:         resd 1
-    .height:        resd 1
-    .components:    resb 1
-    .progressive:   resb 1
-    .qtables:       resq 1
-    .htables:       resq 1
-    .restart:       resd 1
-    .pixbuf:        resq 1
-    .arena:         resq 1
-    .component_id:  resb 4
-    .component_h:   resb 4
-    .component_v:   resb 4
-    .component_qt:  resb 4
-    .max_h:         resb 1
-    .max_v:         resb 1
-    .scan_count:    resb 1
-    .scan_id:       resb 4
-    .scan_dc:       resb 4
-    .scan_ac:       resb 4
-    .entropy:       resq 1
-    .entropy_end:   resq 1
-endstruc
+; JpegImage: inc/image.inc
 
 ; ---------------------------------------------------------------------------
 ; jpeg_probe
@@ -159,7 +138,13 @@ jpeg_decode:
     mov rdi, r14
     mov rsi, r12
     mov rdx, r13
+    cmp byte [r14 + JpegImage.progressive], 0
+    jne .progressive
     call jpeg_decode_scan
+    jmp .decoded
+.progressive:
+    call jpeg_decode_progressive
+.decoded:
     test rax, rax
     jnz .bad
     mov rax, r15
@@ -300,31 +285,9 @@ jpeg_scan_markers:
     movzx ecx, word [r12 + 2]
     xchg cl, ch
     jmp .next
-.sof_prog:
-    cmp ecx, 11
-    jb .fail
-    cmp byte [r12 + 4], 8
-    jne .fail
+.sof_prog:                              ; the same frame header
     mov byte [rbx + JpegImage.progressive], 1
-    movzx eax, word [r12 + 5]
-    xchg al, ah
-    mov [rbx + JpegImage.height], eax
-    movzx eax, word [r12 + 7]
-    xchg al, ah
-    mov [rbx + JpegImage.width], eax
-    movzx eax, byte [r12 + 9]
-    cmp eax, 1
-    je .sof_prog_components_ok
-    cmp eax, 3
-    jne .fail
-.sof_prog_components_ok:
-    lea edx, [rax + rax * 2 + 8]
-    cmp ecx, edx
-    jne .fail
-    mov [rbx + JpegImage.components], al
-    movzx ecx, word [r12 + 2]
-    xchg cl, ch
-    jmp .next
+    jmp .sof
 .dqt:
     mov rdi, rbx
     mov rsi, r12
@@ -355,6 +318,8 @@ jpeg_scan_markers:
     xchg cl, ch
     jmp .next
 .sos:
+    cmp byte [rbx + JpegImage.progressive], 0
+    jne .done                           ; jpeg_decode_progressive reads them
     cmp ecx, 8
     jb .fail
     movzx eax, byte [r12 + 4]
@@ -732,9 +697,7 @@ jpeg_decode_scan:
 %define CS_PLANES   80                  ; three JpegPlanes
 %define CS_MCUS_X   (CS_PLANES + 3 * JpegPlane_size)
 %define CS_MCUS_Y   (CS_MCUS_X + 4)
-%define CS_ROWS     (CS_MCUS_X + 8)     ; Y, Cb and Cr rows, int16
-%define CS_Y        (CS_MCUS_X + 16)
-%define CS_FRAME    (((CS_Y + 4 + 15) & ~15))
+%define CS_FRAME    (((CS_MCUS_Y + 4 + 15) & ~15))
 jpeg_decode_color_scan:
     PROLOGUE_SAVE rbx, r12, r13, r14, r15
     sub rsp, CS_FRAME
@@ -972,50 +935,9 @@ jpeg_decode_color_scan:
     inc dword [rsp + 48]
     jmp .color_mcu_y
 .color_ok:                              ; every row upsampled and converted
-    mov esi, [r13 + JpegImage.width]
-    imul rsi, rsi, 6
-    mov rdi, [r13 + JpegImage.arena]
-    call arena_alloc
-    test rax, rax
-    jz .color_oom
-    js .color_oom
-    mov [rsp + CS_ROWS], rax
-    mov dword [rsp + CS_Y], 0
-.color_row:
-    mov eax, [rsp + CS_Y]
-    cmp eax, [r13 + JpegImage.height]
-    jae .color_done
-    xor r15d, r15d
-.color_row_plane:
-    imul eax, r15d, JpegPlane_size
-    lea rdi, [rsp + CS_PLANES + rax]
-    mov esi, [rsp + CS_Y]
-    mov eax, [r13 + JpegImage.width]
-    imul eax, r15d
-    mov rdx, [rsp + CS_ROWS]
-    lea rdx, [rdx + rax * 2]
-    mov ecx, [r13 + JpegImage.width]
-    call jpeg_upsample_row
-    test rax, rax
-    jnz .color_fail
-    inc r15d
-    cmp r15d, 3
-    jb .color_row_plane
-    mov eax, [rsp + CS_Y]
-    imul rax, [rbx + PixBuf.stride]
-    add rax, [rbx + PixBuf.data]
-    mov rdi, rax
-    mov rsi, [rsp + CS_ROWS]
-    mov r8d, [r13 + JpegImage.width]
-    lea rdx, [rsi + r8 * 2]
-    lea rcx, [rdx + r8 * 2]
-    call jpeg_ycbcr_to_bgra
-    test rax, rax
-    jnz .color_fail
-    inc dword [rsp + CS_Y]
-    jmp .color_row
-.color_done:
-    xor eax, eax
+    mov rdi, r13
+    lea rsi, [rsp + CS_PLANES]
+    call jpeg_emit_rows
     jmp .color_out
 .color_unsupported:
     mov rax, -ENOTSUP
@@ -1029,6 +951,89 @@ jpeg_decode_color_scan:
     add rsp, CS_FRAME
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
+
+; ---------------------------------------------------------------------------
+; jpeg_emit_rows
+;   The image's rows from its components' planes: each upsampled
+;   (jpeg_upsample_row) and converted (jpeg_ycbcr_to_bgra), or for one
+;   component grey
+;   IN:  rdi = JpegImage* (its pixbuf made), rsi = JpegPlane[components]
+;   OUT: rax = 0, negative error
+; ---------------------------------------------------------------------------
+global jpeg_emit_rows
+jpeg_emit_rows:
+    PROLOGUE_SAVE rbx, r12, r13, r14, r15
+    sub rsp, 8
+    mov r13, rdi
+    mov r12, rsi
+    mov rbx, [r13 + JpegImage.pixbuf]
+    mov esi, [r13 + JpegImage.width]    ; three rows of int16
+    imul rsi, rsi, 6
+    mov rdi, [r13 + JpegImage.arena]
+    call arena_alloc
+    test rax, rax
+    jz .oom
+    js .oom
+    mov r14, rax
+    xor r15d, r15d                      ; y
+.row:
+    cmp r15d, [r13 + JpegImage.height]
+    jae .done
+    mov dword [rsp], 0                  ; component
+.plane:
+    mov ecx, [rsp]
+    movzx eax, byte [r13 + JpegImage.components]
+    cmp ecx, eax
+    jae .convert
+    imul eax, ecx, JpegPlane_size
+    lea rdi, [r12 + rax]
+    mov esi, r15d
+    mov eax, [r13 + JpegImage.width]
+    imul eax, ecx
+    lea rdx, [r14 + rax * 2]
+    mov ecx, [r13 + JpegImage.width]
+    call jpeg_upsample_row
+    test rax, rax
+    jnz .out
+    inc dword [rsp]
+    jmp .plane
+.convert:
+    mov eax, r15d
+    imul rax, [rbx + PixBuf.stride]
+    add rax, [rbx + PixBuf.data]
+    mov rdi, rax
+    mov r8d, [r13 + JpegImage.width]
+    cmp byte [r13 + JpegImage.components], 1
+    je .grey
+    mov rsi, r14
+    lea rdx, [rsi + r8 * 2]
+    lea rcx, [rdx + r8 * 2]
+    call jpeg_ycbcr_to_bgra
+    test rax, rax
+    jnz .out
+    jmp .next
+.grey:
+    xor ecx, ecx
+.grey_pixel:
+    movzx eax, byte [r14 + rcx * 2]
+    mov [rdi + rcx * 4], al
+    mov [rdi + rcx * 4 + 1], al
+    mov [rdi + rcx * 4 + 2], al
+    mov byte [rdi + rcx * 4 + 3], 0xFF
+    inc ecx
+    cmp ecx, r8d
+    jb .grey_pixel
+.next:
+    inc r15d
+    jmp .row
+.done:
+    xor eax, eax
+    jmp .out
+.oom:
+    mov rax, -ENOMEM
+.out:
+    add rsp, 8
+    EPILOGUE_RESTORE rbx, r12, r13, r14, r15
 
 section .rodata
 jpeg_zigzag_order:
