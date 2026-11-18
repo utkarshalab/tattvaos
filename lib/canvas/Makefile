@@ -160,6 +160,7 @@ IMG_SRCS := \
     $(SRCDIR)/img/jpeg_idct.asm \
     $(SRCDIR)/img/jpeg_color.asm \
     $(SRCDIR)/img/jpeg_lossless.asm \
+    $(SRCDIR)/img/jpeg_progressive.asm \
     $(SRCDIR)/img/lzw.asm \
     $(SRCDIR)/img/gif.asm \
     $(SRCDIR)/img/gif_animation.asm \
