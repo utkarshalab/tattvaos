@@ -243,6 +243,7 @@ COLOR_SRCS := \
     $(SRCDIR)/color/formats.asm \
     $(SRCDIR)/color/srgb.asm \
     $(SRCDIR)/color/icc_parse.asm \
+    $(SRCDIR)/color/icc_transform.asm \
     $(SRCDIR)/color/matrix.asm \
     $(SRCDIR)/color/trc.asm \
     $(SRCDIR)/color/tonemap.asm \
