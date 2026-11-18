@@ -25,7 +25,7 @@ import sys
 import tempfile
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 LOSSY_PSNR_FLOOR = 30.0
 
@@ -223,6 +223,19 @@ def build_corpus(d):
     add("image.ppm", "exact", lambda p: im.save(p, "PPM"))
     add("image.ff", "exact", lambda p: write_farbfeld(p, ima))
     vp8l_variants(add)
+    # MED-03: every EXIF orientation but 1, an image wider than it is tall,
+    # in each format whose decode is turned upright by it (JPEG 4:4:4: its
+    # 4:2:0 chroma upsampling, not the orientation, is near the floor)
+    turned = synth(37, 23, 13)
+    for o in range(2, 9):
+        exif = Image.Exif()
+        exif[0x0112] = o
+        b = exif.tobytes()
+        add(f"orient{o}.png", "exact", lambda p, b=b: turned.save(p, "PNG", exif=b))
+        add(f"orient{o}.jpg", "lossy",
+            lambda p, b=b: turned.save(p, "JPEG", quality=90, subsampling=0, exif=b))
+        add(f"orient{o}.webp", "exact",
+            lambda p, b=b: turned.save(p, "WEBP", lossless=True, exif=b))
     return cases
 
 
@@ -280,7 +293,8 @@ def reference_decode(path):
     if path.endswith(".ff"):
         ref = read_farbfeld(path)
     else:
-        ref = np.asarray(Image.open(path).convert("RGBA")).astype(np.int64)
+        im = ImageOps.exif_transpose(Image.open(path))   # upright, as Canvas
+        ref = np.asarray(im.convert("RGBA")).astype(np.int64)
     t = ref[..., :3] * ref[..., 3:4] + 128
     ref[..., :3] = (t + (t >> 8)) >> 8
     return ref
