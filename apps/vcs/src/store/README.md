@@ -72,8 +72,9 @@ reader pin; transaction and migration pins remain ordinary durable owner edges.
 `ref_catalog.asm` validates the scalable variable-length branch, tag, remote and
 workspace records, including portable component names, strict kind/name order,
 target identities and zero alignment padding. Kind-1 mutable-root hashing binds
-the complete canonical byte stream to its repository generation. Ref-key hashes
-identify complete kind/name pairs for the sole symbolic form, workspace `HEAD`.
+the complete canonical byte stream to its repository generation and rejects any
+record whose last-change generation lies in the future. Ref-key hashes identify
+complete kind/name pairs for the sole symbolic form, workspace `HEAD`.
 
 `publication.asm` preflights complete object IDs and ownership records before
 authenticating the complete object-index generation. Every staged object's ID,
