@@ -14,9 +14,14 @@ ref_root_frame:
  dw 1,1
  dd 0
 ref_root_frame_size equ $-ref_root_frame
+ref_key_frame:
+ db 'UVCSRFK1'
+ dw 1
+ref_key_frame_size equ $-ref_key_frame
 
 section .text
-global vcs_ref_catalog_validate,vcs_ref_root_hash,vcs_ref_root_verify
+global vcs_ref_catalog_validate,vcs_ref_key_hash
+global vcs_ref_root_hash,vcs_ref_root_verify
 
 ; RDI=canonical variable records, RSI=total bytes. RAX=VCS status.
 vcs_ref_catalog_validate:
@@ -74,6 +79,15 @@ vcs_ref_catalog_validate:
  call ref_name_validate
  test eax,eax
  jz .catalog_corrupt
+ test word [rbx+2],VCS_REF_SYMBOLIC
+ jz .catalog_order
+ cmp byte [rbx],VCS_REF_WORKSPACE
+ jne .catalog_corrupt
+ cmp byte [rbx+1],4
+ jne .catalog_corrupt
+ cmp dword [rbx+VCS_REF_HEADER],0x44414548 ; ASCII 'HEAD'
+ jne .catalog_corrupt
+.catalog_order:
  test r13,r13
  jz .catalog_padding
  mov rdi,r13
@@ -111,6 +125,63 @@ vcs_ref_catalog_validate:
 .catalog_corrupt:
  mov eax,VCS_ERR_CORRUPT
 .catalog_done:
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ ret
+
+; RDI=one validated record, RSI=32-byte output. Hashes kind and complete name.
+vcs_ref_key_hash:
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,112
+ test rdi,rdi
+ jz .key_usage
+ test rsi,rsi
+ jz .key_usage
+ mov rbx,rdi
+ mov r12,rsi
+ movzx r13d,byte [rbx+1]
+ lea r14,[r13+7]
+ and r14,-8
+ add r14,VCS_REF_HEADER
+ jc .key_corrupt
+ mov rdi,rbx
+ mov rsi,r14
+ call vcs_ref_catalog_validate
+ test eax,eax
+ jnz .key_done
+ mov rdi,rsp
+ call sha256_init
+ mov rdi,rsp
+ lea rsi,[ref_key_frame]
+ mov edx,ref_key_frame_size
+ call sha256_update
+ mov rdi,rsp
+ mov rsi,rbx
+ mov edx,2
+ call sha256_update
+ mov rdi,rsp
+ lea rsi,[rbx+VCS_REF_HEADER]
+ mov rdx,r13
+ call sha256_update
+ mov rdi,rsp
+ mov rsi,r12
+ call sha256_final
+ xor eax,eax
+ jmp .key_done
+.key_usage:
+ mov eax,VCS_ERR_USAGE
+ jmp .key_done
+.key_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.key_done:
+ add rsp,112
  pop r15
  pop r14
  pop r13
