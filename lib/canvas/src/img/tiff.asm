@@ -949,7 +949,7 @@ tiff_decode:
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     call .compose
     mov rax,rbx
