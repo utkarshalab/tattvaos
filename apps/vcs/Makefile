@@ -80,7 +80,7 @@ $(BUILD)/ownership.o: src/store/ownership.asm include/vcs.inc include/chunk_pipe
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/ref_catalog.o: src/store/ref_catalog.asm include/vcs.inc include/ref_catalog.inc ../../lib/crypto/uhash/sha256/sha256.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
-$(BUILD)/publication.o: src/store/publication.asm include/vcs.inc include/object_store.inc include/object_index.inc include/superblock.inc include/ownership.inc include/ref_catalog.inc include/publication.inc | $(BUILD)
+$(BUILD)/publication.o: src/store/publication.asm include/vcs.inc include/object_store.inc include/object_index.inc include/superblock.inc include/ownership.inc include/ref_catalog.inc include/commit_object.inc include/publication.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
 $(BUILD)/history.o: src/store/history.asm include/vcs.inc include/repository.inc ../../lib/storage/uxfs/volume.inc | $(BUILD)
 	$(NASM) -w+error -f elf64 -I ./ -I ../../ $< -o $@
@@ -136,7 +136,7 @@ $(BUILD)/ownership.so: $(BUILD)/ownership.o $(BUILD)/file_object.o $(BUILD)/tree
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/ref_catalog.so: $(BUILD)/ref_catalog.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
-$(BUILD)/publication.so: $(BUILD)/publication.o $(BUILD)/ownership.o $(BUILD)/ref_catalog.o $(BUILD)/file_object.o $(BUILD)/tree_object.o $(BUILD)/object_index.o $(BUILD)/superblock.o $(BUILD)/object_store.o $(BUILD)/sha256.o
+$(BUILD)/publication.so: $(BUILD)/publication.o $(BUILD)/commit_object.o $(BUILD)/ownership.o $(BUILD)/ref_catalog.o $(BUILD)/file_object.o $(BUILD)/tree_object.o $(BUILD)/object_index.o $(BUILD)/superblock.o $(BUILD)/object_store.o $(BUILD)/sha256.o
 	$(LD) -shared -Bsymbolic -z noexecstack -o $@ $^
 $(BUILD)/diff_probe.o: tests/unit/diff_probe.asm | $(BUILD)
 	$(NASM) -w+error -f elf64 $< -o $@
