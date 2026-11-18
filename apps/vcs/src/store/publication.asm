@@ -4,6 +4,7 @@
 %include "include/object_index.inc"
 %include "include/superblock.inc"
 %include "include/ownership.inc"
+%include "include/ref_catalog.inc"
 %define VCS_PUBLICATION_IMPLEMENTATION
 %include "include/publication.inc"
 bits 64
@@ -12,6 +13,7 @@ default rel
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate,vcs_ownership_catalog_validate
 extern vcs_ownership_root_verify
+extern vcs_ref_root_verify
 extern vcs_superblock_verify,vcs_superblock_select_latest
 extern sha256_hash
 
@@ -122,6 +124,16 @@ vcs_publication_commit:
  call vcs_ownership_root_verify
  test eax,eax
  jnz .done
+ mov rax,[rbx+vcs_publication.ref_root]
+ test rax,rax
+ jz .usage
+ mov rdx,[rbx+vcs_publication.generation]
+ cmp [rax+vcs_ref_root.generation],rdx
+ jne .corrupt
+ mov rdi,rax
+ call vcs_ref_root_verify
+ test eax,eax
+ jnz .done
  ; A born repository HEAD must resolve to a commit in this exact authenticated
  ; index generation. An unborn repository encodes all 32 bytes as zero.
  mov rax,[rbx+vcs_publication.root]
@@ -150,6 +162,13 @@ vcs_publication_commit:
  lea rdi,[rax+vcs_superblock.object_index_root]
  mov rax,[rbx+vcs_publication.index_root]
  mov rsi,[rax+vcs_object_index_root.root_hash]
+ call ids_equal_publication
+ test eax,eax
+ jz .corrupt
+ mov rax,[rbx+vcs_publication.root]
+ lea rdi,[rax+vcs_superblock.ref_root]
+ mov rax,[rbx+vcs_publication.ref_root]
+ mov rsi,[rax+vcs_ref_root.root_hash]
  call ids_equal_publication
  test eax,eax
  jz .corrupt
@@ -543,7 +562,12 @@ vcs_publication_commit:
  mov r8,[rax+vcs_object_index_root.root_hash]
  mov rax,[rbx+vcs_publication.ownership_root]
  mov r9,[rax+vcs_ownership_root.root_hash]
+ mov rax,[rbx+vcs_publication.ref_root]
+ mov rax,[rax+vcs_ref_root.root_hash]
+ sub rsp,16
+ mov [rsp],rax
  call [rbp+vcs_publish_backend.stage_root]
+ add rsp,16
  test eax,eax
  jnz .abort_with_status
  mov qword [rbx+vcs_publication.result_phase],VCS_PUBLISH_ROOT
