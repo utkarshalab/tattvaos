@@ -3,7 +3,7 @@
 Object store on UXFS: repository metadata, snapshots, refs and atomic ownership
 transfers. There is no tracing garbage collector.
 
-Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `tree_object.asm`, `ownership.asm`, `publication.asm`,
+Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `tree_object.asm`, `ownership.asm`, `ref_catalog.asm`, `publication.asm`,
 `history.asm`, `stage.asm`, `refs.asm`, `worktree.asm`, and `identity.asm`: UXFS initialization, repository
 discovery, full-file snapshot manifests, unchanged blob reuse, status comparison,
 selective persistent staging, branches/tags, forced checkout, transactional
@@ -64,6 +64,11 @@ the complete canonical catalog and generation. Reclamation succeeds only when
 the validated catalog has no inbound edge and the caller reports no active
 reader pin; transaction and migration pins remain ordinary durable owner edges.
 
+`ref_catalog.asm` validates the scalable variable-length branch, tag, remote and
+workspace records, including portable component names, strict kind/name order,
+target identities and zero alignment padding. Kind-1 mutable-root hashing binds
+the complete canonical byte stream to its repository generation.
+
 `publication.asm` preflights complete object IDs and ownership records before
 authenticating the complete object-index generation. Every staged object's ID,
 type and length must match that index before the backend begins. The coordinator
@@ -84,11 +89,13 @@ strictly increasing unique locators, final flags and next links. Ownership edges
 are canonical and unique, and an allocation-free sorted merge proves that every
 new object has a correctly typed pin owned by the current transaction. The
 complete kind-2 ownership root is verified against the candidate generation and
-superblock, and every staged edge must belong to it. The coordinator then passes
-overflow-safe object, extent and ownership counts to backend reservation, then
-drives object staging, ownership staging, the repository root plus both verified
-catalog-root hashes, flush and atomic publish. Failures before the publish
-barrier abort; an abort failure or ambiguous publish poisons the backend until remount.
+superblock, and every staged edge must belong to it. The complete kind-1 ref root
+is also verified against the same generation and superblock. The coordinator
+then passes overflow-safe object, extent and ownership counts to backend
+reservation, then drives object staging, ownership staging, the repository root
+plus all three verified catalog-root hashes, flush and atomic publish. Failures
+before the publish barrier abort; an abort failure or ambiguous publish poisons
+the backend until remount.
 The coordinator is active, while the scalable UXFS callback adapter remains
 blocked on the durable allocator and atomic-generation ABI.
 
