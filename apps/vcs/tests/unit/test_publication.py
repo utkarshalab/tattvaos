@@ -41,6 +41,11 @@ class OwnershipRoot(ctypes.Structure):
                 ("generation", ctypes.c_uint64), ("root_hash", P)]
 
 
+class RefRoot(ctypes.Structure):
+    _fields_ = [("records", P), ("record_bytes", ctypes.c_uint64),
+                ("generation", ctypes.c_uint64), ("root_hash", P)]
+
+
 class Backend(ctypes.Structure):
     _fields_ = [("context", ctypes.c_void_p), ("begin", ctypes.c_void_p),
                 ("put_object", ctypes.c_void_p), ("put_edge", ctypes.c_void_p),
@@ -60,6 +65,7 @@ class Publication(ctypes.Structure):
                 ("tx_sequence", ctypes.c_uint64), ("generation", ctypes.c_uint64),
                 ("index_root", ctypes.POINTER(IndexRoot)),
                 ("ownership_root", ctypes.POINTER(OwnershipRoot)),
+                ("ref_root", ctypes.POINTER(RefRoot)),
                 ("result_phase", ctypes.c_uint64)]
 
 
@@ -71,7 +77,7 @@ BEGIN_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_uint64,
 PAIR_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p)
 ROOT_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p, ctypes.c_void_p,
                           ctypes.c_uint64, ctypes.c_uint64, ctypes.c_void_p,
-                          ctypes.c_void_p)
+                          ctypes.c_void_p, ctypes.c_void_p)
 SIMPLE_CB = ctypes.CFUNCTYPE(ctypes.c_uint64, ctypes.c_void_p)
 
 
@@ -156,6 +162,16 @@ ownership_root = OwnershipRoot(edges, len(edges), 9, ownership_hash)
 
 commit_payload = b"canonical head commit"
 commit_id = oid(4, commit_payload)
+ref_name = b"main"
+ref_record = (struct.pack("<BBHIQ", 1, len(ref_name), 1, 0, 7)
+              + commit_id + ref_name
+              + bytes((-len(ref_name)) & 7))
+ref_records = array(ref_record)
+ref_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 1, 0, 9,
+                                       len(ref_record))
+ref_hash = array(hashlib.sha256(ref_frame + ref_record).digest())
+ref_root = RefRoot(ref_records, len(ref_record), 9, ref_hash)
+
 catalog = [(bytes(objects[index].object_id), 100 + index,
             objects[index].length, objects[index].object_type)
            for index in range(2)]
@@ -178,7 +194,7 @@ struct.pack_into("<IIQQ", root_image, 8, 3, 512, 3, 9)
 root_image[32:48] = hashlib.sha256(b"publication repository uuid").digest()[:16]
 struct.pack_into("<II", root_image, 48, 1, 4096)
 root_image[56:88] = commit_id
-root_image[88:120] = hashlib.sha256(b"empty refs root").digest()
+root_image[88:120] = bytes(ref_hash)
 root_image[120:152] = bytes(ownership_hash)
 root_image[184:216] = bytes(index_hash)
 struct.pack_into("<Q", root_image, 256, 12)
@@ -211,10 +227,11 @@ def backend_for(fail=None, abort_fail=False):
         return status("edge")
     @ROOT_CB
     def stage_root(ctx, value, length, generation, object_index_hash,
-                   ownership_root_hash):
+                   ownership_root_hash, ref_root_hash):
         assert length == len(root_bytes) and generation == 9
         assert ctypes.string_at(object_index_hash, 32) == bytes(index_hash)
         assert ctypes.string_at(ownership_root_hash, 32) == bytes(ownership_hash)
+        assert ctypes.string_at(ref_root_hash, 32) == bytes(ref_hash)
         return status("root")
     @SIMPLE_CB
     def flush(ctx):
@@ -239,7 +256,8 @@ def request(backend):
     return Publication(ctypes.pointer(backend), previous_root, objects, 2,
                        edges, len(edges), transaction_owner, root,
                        len(root_bytes), 11, 9, ctypes.pointer(index_root),
-                       ctypes.pointer(ownership_root), 0xBAD)
+                       ctypes.pointer(ownership_root), ctypes.pointer(ref_root),
+                       0xBAD)
 
 
 backend, state = backend_for()
@@ -327,6 +345,29 @@ backend, state = backend_for()
 publication = request(backend)
 publication.root = subset_candidate_buffer
 publication.ownership_root = ctypes.pointer(subset_root)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+
+# Ref generation and exact superblock binding are authenticated independently.
+ref_hash[0] ^= 1
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+ref_hash[0] ^= 1
+ref_root.generation = 10
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+ref_root.generation = 9
+ref_candidate = bytearray(root_image)
+ref_candidate[88] ^= 1
+ref_candidate[480:512] = hashlib.sha256(ref_candidate[:480]).digest()
+ref_candidate_buffer = array(ref_candidate)
+backend, state = backend_for()
+publication = request(backend)
+publication.root = ref_candidate_buffer
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
@@ -536,4 +577,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated object/ownership roots, extent chains, transaction pins, atomic failures)")
+print("VCS publication: PASS (authenticated object/ownership/ref roots, extent chains, transaction pins, atomic failures)")
