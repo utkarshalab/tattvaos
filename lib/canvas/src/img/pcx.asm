@@ -57,7 +57,7 @@ pcx_decode:
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     add r12,128
     sub r13,128
