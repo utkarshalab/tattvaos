@@ -30,7 +30,7 @@ endstruc
 ; put_object(ctx, vcs_publish_object*)
 ; put_edge(ctx, vcs_ownership_edge*)
 ; stage_root(ctx, root_bytes, root_length, generation, object_index_root_hash,
-;            ownership_root_hash)
+;            ownership_root_hash, ref_root_hash)
 ; flush(ctx), publish(ctx), abort(ctx), poison(ctx)
 struc vcs_publish_backend
     .context    resq 1
@@ -58,6 +58,7 @@ struc vcs_publication
     .generation    resq 1
     .index_root    resq 1 ; authenticated vcs_object_index_root
     .ownership_root resq 1 ; authenticated complete vcs_ownership_root
+    .ref_root      resq 1 ; authenticated complete vcs_ref_root
     .result_phase  resq 1
 endstruc
 
