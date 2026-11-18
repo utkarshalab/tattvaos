@@ -23,8 +23,19 @@ import tempfile
 
 from PIL import Image
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from compare_images import make_icc  # noqa: E402
+
 TIME_LIMIT = 10.0           # seconds a decode may take
 ROUNDS = 120                # mutants per seed
+
+
+def png_xmp(xmp):
+    """A PNG's iTXt chunk of XMP (XML:com.adobe.xmp), uncompressed."""
+    from PIL import PngImagePlugin
+    info = PngImagePlugin.PngInfo()
+    info.add_itxt("XML:com.adobe.xmp", xmp.decode(), zip=False)
+    return info
 
 
 def seeds():
@@ -47,6 +58,22 @@ def seeds():
     save('baseline.jpg', rgb, 'JPEG', quality=80)
     save('sub420.jpg', rgb, 'JPEG', quality=60, subsampling=2)
     save('progressive.jpg', rgb, 'JPEG', quality=70, progressive=True)
+    # QA-03: metadata as image_decode reads it (img/meta, color/icc_transform,
+    # pixbuf_orient): EXIF orientation, an ICC profile of each curve kind,
+    # XMP, in every format that carries them
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    exif = exif.tobytes()
+    p3 = [(0.5151, 0.2412, -0.0011), (0.2920, 0.6922, 0.0419), (0.1571, 0.0666, 0.7841)]
+    icc_para = make_icc([("para", 3, [2.4, 1 / 1.055, 0.055 / 1.055, 1 / 12.92, 0.04045])] * 3, p3)
+    icc_table = make_icc([("table", [i * 4369 for i in range(16)])] * 3, p3)
+    icc_gamma = make_icc([("gamma", 1.8)])
+    xmp = b'<x:xmpmeta xmlns:x="adobe:ns:meta/"/>'
+    save('meta.jpg', rgb, 'JPEG', quality=80, exif=exif, icc_profile=icc_para)
+    save('meta.png', rgb, 'PNG', exif=exif, icc_profile=icc_table, pnginfo=png_xmp(xmp))
+    save('meta.webp', rgb, 'WEBP', lossless=True, exif=exif, icc_profile=icc_para, xmp=xmp)
+    save('meta.tif', rgb, 'TIFF', icc_profile=icc_table)
+    save('meta_grey.png', rgb.convert('L'), 'PNG', icc_profile=icc_gamma)
     save('image.pcx', rgb, 'PCX')
     save('palette.pcx', rgb.convert('P'), 'PCX')
     save('palette.tif', rgb.convert('P'), 'TIFF')
