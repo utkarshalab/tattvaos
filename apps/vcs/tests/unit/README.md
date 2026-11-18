@@ -21,7 +21,9 @@ corrupt/missing chains and atomic decoded views. The standard
 collapse, canonical catalog ordering, duplicate rejection and explicit
 reader-aware reclamation proof. `test_tree_ownership.py` covers root/page and
 page/target edges across multiple tree pages, per-owner duplicate collapse and
-atomic capacity/corruption failure. The standard `make test` target runs these with
+atomic capacity/corruption failure. `test_ref_catalog.py` validates scalable
+variable ref records, canonical names and ordering, alignment padding, kind-1
+root hashes and corruption rejection. The standard `make test` target runs these with
 `test_publication.py`, which injects failure at every transaction phase and
 checks authenticated predecessor transitions and index membership, replay and
 rollback rejection, HEAD commit membership, ownership endpoint closure, root
@@ -29,5 +31,5 @@ tampering, canonical unique staged sets, transaction binding, abort, poison,
 authenticated envelope-locator binding, canonical ownership batches, complete
 physical-envelope and extent-chain validation, transaction-pin coverage,
 authenticated ownership-root binding and staged-edge membership, overflow-safe
-reservation totals, callback order and preflight atomicity, plus the remaining
-module and differential suites.
+reservation totals, authenticated ref-root binding, callback order and preflight
+atomicity, plus the remaining module and differential suites.
