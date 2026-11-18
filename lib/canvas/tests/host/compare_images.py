@@ -11,8 +11,8 @@ output is premultiplied BGRA (decision 0002), so the reference is
 premultiplied with the same rounding, round(c * a / 255), before comparing.
 
 Lossless formats must match exactly. Lossy formats are compared with a PSNR
-floor because chroma upsampling and YUV->RGB rounding legitimately differ
-between decoders; a broken decoder lands far below the floor.
+floor because IDCT and YUV->RGB rounding legitimately differ between
+decoders; a broken decoder lands far below the floor.
 
 Development-machine test tooling only; not part of any OS image.
 """
@@ -27,7 +27,11 @@ import tempfile
 import numpy as np
 from PIL import Image, ImageOps
 
-LOSSY_PSNR_FLOOR = 30.0
+# Canvas upsamples chroma as the reference does, so what is left is the
+# IDCT's and the colour conversion's rounding: every lossy file is above
+# 51 dB. At 30, 4:2:0 JPEG upsampled without interpolation (about 29 dB)
+# passed some files.
+LOSSY_PSNR_FLOOR = 45.0
 
 # Corpus files Canvas cannot decode yet, with the reason. Canvas must refuse
 # each one: that is reported on every run and does not fail it. One decoded
@@ -208,6 +212,11 @@ def build_corpus(d):
     add("gray.jpg", "lossy", lambda p: im.convert("L").save(p, "JPEG", quality=90))
     add("subsample444.jpg", "lossy",
         lambda p: im.save(p, "JPEG", quality=90, subsampling=0))
+    add("subsample422.jpg", "lossy",
+        lambda p: im.save(p, "JPEG", quality=90, subsampling=1))
+    odd = synth(37, 23, 17)    # chroma interpolated up to odd edges
+    add("odd420.jpg", "lossy", lambda p: odd.save(p, "JPEG", quality=90, subsampling=2))
+    add("odd422.jpg", "lossy", lambda p: odd.save(p, "JPEG", quality=90, subsampling=1))
     add("image.gif", "exact", lambda p: im.convert("P").save(p, "GIF"))
     noisy = synth(300, 200, 3).convert("P", palette=Image.ADAPTIVE, colors=256)
     add("noisy.gif", "exact", lambda p: noisy.save(p, "GIF"))   # table fills, clears
@@ -224,8 +233,7 @@ def build_corpus(d):
     add("image.ff", "exact", lambda p: write_farbfeld(p, ima))
     vp8l_variants(add)
     # MED-03: every EXIF orientation but 1, an image wider than it is tall,
-    # in each format whose decode is turned upright by it (JPEG 4:4:4: its
-    # 4:2:0 chroma upsampling, not the orientation, is near the floor)
+    # in each format whose decode is turned upright by it
     turned = synth(37, 23, 13)
     for o in range(2, 9):
         exif = Image.Exif()
@@ -233,7 +241,7 @@ def build_corpus(d):
         b = exif.tobytes()
         add(f"orient{o}.png", "exact", lambda p, b=b: turned.save(p, "PNG", exif=b))
         add(f"orient{o}.jpg", "lossy",
-            lambda p, b=b: turned.save(p, "JPEG", quality=90, subsampling=0, exif=b))
+            lambda p, b=b: turned.save(p, "JPEG", quality=90, exif=b))
         add(f"orient{o}.webp", "exact",
             lambda p, b=b: turned.save(p, "WEBP", lossless=True, exif=b))
     return cases
