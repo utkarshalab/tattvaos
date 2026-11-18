@@ -31,7 +31,7 @@ texture_copy_32:
     call pixbuf_create
     pop r10
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     mov rdi,[rbx+PixBuf.data]
     imul r14,r15
