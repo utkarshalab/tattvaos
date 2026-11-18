@@ -843,7 +843,7 @@ All items run on-device, opt-in, behind capability gates.
 |---|---|---|---|
 | QA-01 | Unit suites green on the host shim | P0 | ✓ all 31 `HOST_SUITES` pass (`make host-check`) |
 | QA-02 | Golden-image tests with a real corpus | P1 | ✓ `test_golden`: frames by Adler-32 against `tests/golden/make_golden.py`, a model of the compositor written apart from it (it reproduces the first checksum, computed before it); scenes: two surfaces, translucent ones stacked three deep, an opaque BGRX buffer copied under a translucent one, surfaces over every edge and corner; partial damage, frame callbacks, leaving; `make_golden.py --check` in `make check` keeps the expected values current |
-| QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ in `make check`: wire and input (`tests/unit/test_fuzz`); images, SVG and their metadata (`tests/host/fuzz_media.py`: EXIF orientation, ICC profiles of each curve kind and XMP in JPEG, PNG, WebP and TIFF seeds); ICC profiles and EDID blocks on their own (`test_fuzz`: 20000 mutants each, random bytes, tag offsets and sizes, checksums made right, each case required to get through to the parser); fonts in lib/ufont's host-check (damaged fonts through glyph lookup and outlines, the shaper of every script, variable fonts). Keymaps are compiled in (nothing parsed); config has no parser yet. Not run continuously |
+| QA-03 | Continuous fuzzing of every parser: wire, images, fonts, ICC, EDID, keymaps, config | P2 | ◐ in `make check`: wire and input (`tests/unit/test_fuzz`); images, SVG and their metadata (`tests/host/fuzz_media.py`: EXIF orientation, ICC profiles of each curve kind and XMP in JPEG, PNG, WebP and TIFF seeds); ICC profiles, EDID blocks and settings files on their own (`test_fuzz`: 20000 mutants each, random bytes, tag offsets and sizes, checksums made right, each case required to get through to the parser); fonts in lib/ufont's host-check (damaged fonts through glyph lookup and outlines, the shaper of every script, variable fonts). Keymaps are compiled in (nothing parsed). Not run continuously |
 | QA-04 | Structure-aware wire-protocol fuzzer | P3 | |
 | QA-05 | Conformance suite that connects real clients | P2 | ◐ `tests/cts` (TODO) |
 | QA-06 | Hostile-client conformance cases | P2 | |
@@ -878,7 +878,7 @@ All items run on-device, opt-in, behind capability gates.
 | DEV-09 | Protocol linter | P2 | ◐ `cwplint` placeholder |
 | DEV-10 | Admin tools: `canvasctl`, `canvas_info` complete | P2 | ◐ `src/tools` |
 | DEV-11 | Widget toolkit on top of the client library | P4 | |
-| DEV-12 | Config schema with validation | P2 | |
+| DEV-12 | Config schema with validation | P2 | ✓ `core/config`: `config_parse` reads `[section]` / `key = value` files against a schema (`inc/config.inc`: integers with ranges, booleans, choices, strings bare or quoted with escapes), defaults first; each line with a mistake (syntax, unknown section or key, wrong kind, out of range, too long, given twice) is not taken, counted, the first's line and reason kept, the rest applied. `server/settings`: `canvas.conf`'s schema (log level, key repeat, idle lock, high contrast, lid), read by canvasd at start, mistakes logged, documented in `admin-guide.md`. `test_config` (mutation-checked) and `test_fuzz`. A user's own file waits for the login |
 
 ## LIF — Release and lifecycle
 
