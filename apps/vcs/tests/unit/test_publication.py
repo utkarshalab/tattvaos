@@ -587,6 +587,25 @@ root_image[184:216] = bytes(index_hash)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
 root[:] = root_image
 
+# Even non-staged authenticated records cannot claim a transaction newer than
+# the candidate repository transaction.
+future_record = next(record for record in index_records
+                     if bytes(record.object_id) == alternate_commit_id)
+future_record.transaction = 12
+index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
+root_image[184:216] = bytes(index_hash)
+root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
+root[:] = root_image
+backend, state = backend_for()
+publication = request(backend)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+future_record.transaction = 11
+index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
+root_image[184:216] = bytes(index_hash)
+root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
+root[:] = root_image
+
 for envelope in (0, 999):
     saved_envelope = objects[0].envelope
     objects[0].envelope = envelope
@@ -683,4 +702,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (commit/ref/HEAD closure, extent chains, transaction pins, atomic failures)")
+print("VCS publication: PASS (catalog transaction and ownership closure, extent chains, atomic failures)")
