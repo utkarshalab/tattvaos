@@ -80,7 +80,7 @@ raw_decode:
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax,rax
-    jz .bad
+    jle .bad
     mov [rsp+16],rax
     mov r15,[rax+PixBuf.data]
     xor r10d,r10d                 ; y
