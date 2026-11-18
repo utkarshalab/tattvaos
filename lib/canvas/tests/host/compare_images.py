@@ -241,6 +241,7 @@ def build_corpus(d):
     add("image.ff", "exact", lambda p: write_farbfeld(p, ima))
     vp8l_variants(add)
     icc_variants(add)
+    format_variants(add)
     # MED-03: every EXIF orientation but 1, an image wider than it is tall,
     # in each format whose decode is turned upright by it
     turned = synth(37, 23, 13)
@@ -378,6 +379,59 @@ def icc_variants(add):
     save("icc_two_chunks.jpg", im, "JPEG", make_icc([big] * 3, adobe), quality=95)
 
 
+def format_variants(add):
+    """QA-09: every other format Canvas decodes that the reference library
+    writes, in the encodings it writes: TIFF uncompressed, LZW, PackBits and
+    deflate, RGBA, grey, 16-bit grey and palette; PCX RGB, palette and grey;
+    ICO; DDS uncompressed and block-compressed (DXT1, DXT5, BC5 with the
+    DX10 header; BC4 and BC5 also under the older ATI1 and ATI2 codes,
+    made from it); QOI;
+    PGM and PBM; TGA run-length RGBA and grey; BMP with alpha; PNG 16-bit
+    grey and grey with alpha."""
+    im = synth(61, 37, 41)
+    ima = synth(61, 37, 43, alpha=True)
+    grey = im.convert("L")
+    grey16 = Image.fromarray(np.asarray(grey).astype(np.uint16) * 257)
+    for comp in ("raw", "tiff_lzw", "packbits", "tiff_adobe_deflate"):
+        add(f"tiff_{comp}.tif", "exact", lambda p, c=comp: im.save(p, "TIFF", compression=c))
+    add("tiff_rgba.tif", "exact", lambda p: ima.save(p, "TIFF"))
+    add("tiff_grey.tif", "exact", lambda p: grey.save(p, "TIFF", compression="tiff_lzw"))
+    add("tiff_grey16.tif", "exact", lambda p: grey16.save(p, "TIFF"))
+    add("tiff_palette.tif", "exact", lambda p: im.convert("P").save(p, "TIFF"))
+    add("image.pcx", "exact", lambda p: im.save(p, "PCX"))
+    add("palette.pcx", "exact", lambda p: im.convert("P").save(p, "PCX"))
+    add("grey.pcx", "exact", lambda p: grey.save(p, "PCX"))
+    add("image.ico", "exact", lambda p: ima.resize((48, 48)).save(p, "ICO", sizes=[(48, 48)]))
+    add("rgba.dds", "exact", lambda p: ima.save(p, "DDS"))
+    add("dxt1.dds", "exact", lambda p: im.convert("RGBA").save(p, "DDS", pixel_format="DXT1"))
+    add("dxt5.dds", "exact", lambda p: ima.save(p, "DDS", pixel_format="DXT5"))
+    add("bc5.dds", "exact", lambda p: im.save(p, "DDS", pixel_format="BC5"))
+
+    def bc5_as(path, fourcc, red_only):
+        """The BC5 file's blocks under the older header (FourCC, no DX10
+        part) or, red_only, as BC4 (each block's first 8 bytes)."""
+        b = io.BytesIO()
+        im.save(b, "DDS", pixel_format="BC5")
+        data = b.getvalue()
+        blocks = data[148:]
+        if red_only:
+            blocks = b"".join(blocks[i:i + 8] for i in range(0, len(blocks), 16))
+        header = bytearray(data[:128])
+        header[84:88] = fourcc
+        open(path, "wb").write(bytes(header) + blocks)
+    add("ati2.dds", "exact", lambda p: bc5_as(p, b"ATI2", False))
+    add("ati1.dds", "exact", lambda p: bc5_as(p, b"ATI1", True))
+    add("image.qoi", "exact", lambda p: im.save(p, "QOI"))
+    add("rgba.qoi", "exact", lambda p: ima.save(p, "QOI"))
+    add("grey.pgm", "exact", lambda p: grey.save(p, "PPM"))
+    add("mono.pbm", "exact", lambda p: grey.convert("1").save(p, "PPM"))
+    add("rle_rgba.tga", "exact", lambda p: ima.save(p, "TGA", compression="tga_rle"))
+    add("grey.tga", "exact", lambda p: grey.save(p, "TGA"))
+    add("rgba.bmp", "exact", lambda p: ima.save(p, "BMP"))
+    add("grey16.png", "exact", lambda p: grey16.save(p, "PNG"))
+    add("grey_alpha.png", "exact", lambda p: ima.convert("LA").save(p, "PNG"))
+
+
 def canvas_decode(tool, path, out):
     r = subprocess.run([tool, path, out], capture_output=True, timeout=60)
     if r.returncode != 0:
@@ -397,6 +451,9 @@ def reference_decode(path):
         ref = read_farbfeld(path)
     else:
         im = ImageOps.exif_transpose(Image.open(path))   # upright, as Canvas
+        if im.mode.startswith("I;16") or im.mode == "I":  # 16-bit to 8: / 257
+            v = np.asarray(im).astype(np.int64)
+            im = Image.fromarray(((v * 255 + 32767) // 65535).astype(np.uint8), "L")
         icc = im.info.get("icc_profile")
         if icc:                                          # in sRGB, as Canvas
             im = ImageCms.profileToProfile(
