@@ -89,11 +89,21 @@ def oid(kind, payload):
     return hashlib.sha256(b"UVCSHSH1" + struct.pack("<HHIQ", 1, kind, 0, len(payload)) + payload).digest()
 
 
+tree_id = hashlib.sha256(b"publication root tree").digest()
+commit_message = b"canonical head commit"
+commit_header = bytearray(256)
+commit_header[:8] = b"UVCSCOM3"
+struct.pack_into("<IIQqii", commit_header, 8, 0, 0, 1, 0, 0,
+                 len(commit_message))
+commit_header[40:72] = tree_id
+commit_payload = bytes(commit_header) + commit_message
+commit_id = oid(4, commit_payload)
 object_specs = [(1, b"first immutable payload"),
-                (2, bytes((index * 73) & 0xff for index in range(5000)))]
+                (2, bytes((index * 73) & 0xff for index in range(5000))),
+                (4, commit_payload)]
 object_specs.sort(key=lambda value: oid(value[0], value[1]))
 payload_buffers = [array(payload) for _, payload in object_specs]
-objects = (PublishObject * 2)()
+objects = (PublishObject * len(object_specs))()
 for index, (kind, payload) in enumerate(object_specs):
     objects[index].object_id[:] = oid(kind, payload)
     objects[index].object_type = kind
@@ -140,15 +150,15 @@ for index, value in enumerate(objects):
 
 chunk_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 1)
 file_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 2)
+commit_index = next(index for index, spec in enumerate(object_specs) if spec[0] == 4)
 transaction_owner = array(hashlib.sha256(b"publication transaction 11").digest())
-commit_payload = b"canonical head commit"
-commit_id = oid(4, commit_payload)
 ref_name = b"main"
 branch_key = hashlib.sha256(b"UVCSRFK1" + struct.pack("<HBB", 1, 1,
                                                        len(ref_name))
                                 + ref_name).digest()
 edge_values = [(1, 1, bytes(objects[file_index].object_id),
                 bytes(objects[chunk_index].object_id)),
+               (1, 3, commit_id, tree_id),
                (2, 4, branch_key, commit_id)]
 for value in objects:
     edge_values.append((5, value.object_type, bytes(transaction_owner),
@@ -162,6 +172,7 @@ for edge, (owner_kind, child_type, owner_key, child_id) in zip(edges, edge_value
     edge.child_id[:] = child_id
 immutable_edge_index = next(index for index, edge in enumerate(edges)
                             if edge.owner_kind == 1)
+immutable_edge_type = edges[immutable_edge_index].child_type
 ownership_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 2, 0, 9,
                                              ctypes.sizeof(edges))
 ownership_hash = array(hashlib.sha256(ownership_frame + bytes(edges)).digest())
@@ -182,8 +193,8 @@ ref_root = RefRoot(ref_records, len(ref_record), 9, ref_hash)
 
 catalog = [(bytes(objects[index].object_id), 100 + index,
             objects[index].length, objects[index].object_type)
-           for index in range(2)]
-catalog.append((commit_id, 102, len(commit_payload), 4))
+           for index in range(len(objects))]
+catalog.append((tree_id, 200, 96, 3))
 index_records = (IndexRecord * len(catalog))()
 for slot, (object_id, envelope, length, object_type) in enumerate(
         sorted(catalog, key=lambda value: value[0])):
@@ -225,7 +236,9 @@ def backend_for(fail=None, abort_fail=False):
         return IO if fail == name else OK
     @BEGIN_CB
     def begin(ctx, tx, object_count, extent_count, edge_count):
-        assert (tx, object_count, extent_count, edge_count) == (11, 2, 3, len(edges))
+        assert (tx, object_count, extent_count, edge_count) == (
+            11, len(objects), sum(value.extent_count for value in objects),
+            len(edges))
         return status("begin")
     @PAIR_CB
     def put_object(ctx, value):
@@ -261,7 +274,8 @@ def backend_for(fail=None, abort_fail=False):
 
 
 def request(backend):
-    return Publication(ctypes.pointer(backend), previous_root, objects, 2,
+    return Publication(ctypes.pointer(backend), previous_root, objects,
+                       len(objects),
                        edges, len(edges), transaction_owner, root,
                        len(root_bytes), 11, 9, ctypes.pointer(index_root),
                        ctypes.pointer(ownership_root), ctypes.pointer(ref_root),
@@ -273,8 +287,27 @@ publication = request(backend)
 success_status = lib.vcs_publication_commit(ctypes.byref(publication))
 assert success_status == OK
 assert publication.result_phase == COMMITTED
-assert state["events"] == ["begin", "object", "object", "edge", "edge",
-                           "edge", "edge", "root", "flush", "publish"]
+assert state["events"] == (["begin"] + ["object"] * len(objects)
+                           + ["edge"] * len(edges)
+                           + ["root", "flush", "publish"])
+
+# Newly staged commits must insert their canonical dependency edges in this
+# transaction, even when the complete candidate catalog already contains them.
+commit_dependency_index = next(
+    index for index, edge in enumerate(edges)
+    if edge.owner_kind == 1 and edge.child_type == 3
+    and bytes(edge.owner_key) == commit_id)
+missing_dependency_values = [bytes(edge) for index, edge in enumerate(edges)
+                             if index != commit_dependency_index]
+missing_dependency_edges = (Edge * len(missing_dependency_values))()
+for edge, value in zip(missing_dependency_edges, missing_dependency_values):
+    ctypes.memmove(ctypes.byref(edge), value, len(value))
+backend, state = backend_for()
+publication = request(backend)
+publication.edges = missing_dependency_edges
+publication.edge_count = len(missing_dependency_edges)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
 
 for failed, phase in (("begin", NONE), ("object", ABORTED), ("edge", ABORTED),
                       ("root", ABORTED), ("flush", ABORTED)):
@@ -489,7 +522,7 @@ for mutation in ("head_missing", "head_wrong_type", "child_missing",
     elif mutation == "child_missing":
         edges[immutable_edge_index].child_id[0] ^= 1
     elif mutation == "child_wrong_type":
-        edges[immutable_edge_index].child_type = 2
+        edges[immutable_edge_index].child_type = 10
     else:
         edges[immutable_edge_index].owner_key[0] ^= 1
     assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
@@ -497,7 +530,7 @@ for mutation in ("head_missing", "head_wrong_type", "child_missing",
     if mutation == "child_missing":
         edges[immutable_edge_index].child_id[0] ^= 1
     elif mutation == "child_wrong_type":
-        edges[immutable_edge_index].child_type = 1
+        edges[immutable_edge_index].child_type = immutable_edge_type
     elif mutation == "owner_missing":
         edges[immutable_edge_index].owner_key[0] ^= 1
 
@@ -548,22 +581,23 @@ for envelope in (0, 999):
     assert publication.result_phase == 0xBAD and state["events"] == []
     objects[0].envelope = saved_envelope
 
-saved_header = bytes(envelope_buffers[0])
+header_test_index = file_index
+saved_header = bytes(envelope_buffers[header_test_index])
 for offset in (0, 12, 24, 72, 80, 88, 120):
-    envelope_buffers[0][offset] ^= 1
+    envelope_buffers[header_test_index][offset] ^= 1
     backend, state = backend_for()
     publication = request(backend)
     assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
     assert publication.result_phase == 0xBAD and state["events"] == []
-    envelope_buffers[0][:] = saved_header
-saved_header_address = ctypes.cast(objects[0].envelope_header,
+    envelope_buffers[header_test_index][:] = saved_header
+saved_header_address = ctypes.cast(objects[header_test_index].envelope_header,
                                    ctypes.c_void_p).value
-objects[0].envelope_header = None
+objects[header_test_index].envelope_header = None
 backend, state = backend_for()
 publication = request(backend)
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == USAGE
 assert publication.result_phase == 0xBAD and state["events"] == []
-objects[0].envelope_header = ctypes.cast(saved_header_address, P)
+objects[header_test_index].envelope_header = ctypes.cast(saved_header_address, P)
 
 multi_index = next(index for index, value in enumerate(objects)
                    if value.extent_count > 1)
@@ -634,4 +668,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated roots/ref ownership, extent chains, transaction pins, atomic failures)")
+print("VCS publication: PASS (commit/ref ownership closure, extent chains, transaction pins, atomic failures)")
