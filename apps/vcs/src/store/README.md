@@ -92,10 +92,11 @@ new object has a correctly typed pin owned by the current transaction. The
 complete kind-2 ownership root is verified against the candidate generation and
 superblock, and every staged edge must belong to it. The complete kind-1 ref root
 is also verified against the same generation and superblock. Direct refs must
-resolve to indexed commits, while symbolic workspace `HEAD` must resolve to a
-branch key in that same catalog. The coordinator then passes overflow-safe
-object, extent and ownership counts to backend reservation, then drives object
-staging, ownership staging, the repository root
+resolve to indexed commits and own them through exact ref-key ownership edges,
+while symbolic workspace `HEAD` must resolve to a branch key in that same
+catalog without adding a duplicate owner. The coordinator then passes
+overflow-safe object, extent and ownership counts to backend reservation, then
+drives object staging, ownership staging, the repository root
 plus all three verified catalog-root hashes, flush and atomic publish. Failures
 before the publish barrier abort; an abort failure or ambiguous publish poisons
 the backend until remount.
