@@ -168,7 +168,8 @@ The ref catalog contains sorted variable records of
 Names use letters, digits, period, underscore, hyphen and slash. Components are
 nonempty, not dot/dot-dot, do not start with period and cannot contain `.vcs`.
 Records are strictly sorted by kind then unsigned name bytes. Ref generation
-increments on every target change and never wraps.
+increments on every target change and never wraps. It cannot exceed the
+enclosing ref-catalog generation.
 The complete canonical byte stream is authenticated with mutable-root kind 1
 and the candidate repository generation. Publication verifies that root and
 requires its hash to equal the superblock ref-root field before storage begins.
