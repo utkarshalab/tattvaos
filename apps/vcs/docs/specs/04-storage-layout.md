@@ -270,6 +270,11 @@ edges. Every newly staged object has an exact transaction-pin edge whose owner
 key is the current transaction's canonical identity and whose child type matches
 the object. Publication proves complete pin coverage and staged-edge membership
 in the authenticated ownership root before opening storage.
+Every newly staged commit is locally validated as a canonical type-4 object.
+Its exact commit-to-root-tree and commit-to-parent edges must occur both in the
+current transaction's staged ownership batch and in the authenticated candidate
+ownership root; a pre-existing catalog edge cannot substitute for staging a new
+commit's dependencies atomically.
 The complete kind-1 ref root must likewise authenticate the candidate generation
 and match the superblock before any backend callback. Publication also resolves
 every direct commit target, proves its exact ref ownership edge, and resolves
