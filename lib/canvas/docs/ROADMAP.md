@@ -579,7 +579,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 97 files of every supported format against a reference decoder, exact for lossless, a PSNR floor of 45 dB for lossy (every lossy file is above 51: JPEG chroma is upsampled as the reference does, `jpeg_upsample_row`); progressive JPEG, not supported (MED-20), must be refused, and is; `fuzz_media.py` fuzzes every format |
+| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 101 files of every supported format against a reference decoder, exact for lossless, a PSNR floor of 45 dB for lossy (every lossy file is above 51: JPEG chroma is upsampled as the reference does, `jpeg_upsample_row`); `fuzz_media.py` fuzzes every format |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ✓ `img/sniff` `image_decode`: the format from its bytes (PNG, JPEG, GIF, BMP, TGA, PPM, QOI, WebP, TIFF, SVG and more), then its decoder; `compare_images.py` against a reference decoder and `fuzz_media.py` in `make check` |
 | MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | ✓ `img/meta` `image_meta`: orientation, the ICC profile (JPEG chunks joined in order, PNG iCCP inflated, checked with `icc_probe` and its size) and XMP from JPEG, PNG, WebP and TIFF; `pixbuf_orient` all eight; `image_decode` turns JPEG, PNG and WebP upright. `test_meta` (mutation-checked) and `compare_images.py` (each orientation in each format against the reference decoder turned upright). The profile is read, not yet applied to the pixels |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
@@ -598,7 +598,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | MED-17 | Subtitle and caption rendering service | P4 | |
 | MED-18 | Video quality pipeline: deinterlace, scaling filters, sharpening | P4 | |
 | MED-19 | Camera preview pipeline | P4 | ◐ `img/camera` (decode only) |
-| MED-20 | Progressive JPEG decoding | P2 | Known gap in `compare_images.py`; the decoder detects it and stops |
+| MED-20 | Progressive JPEG decoding | P2 | ✓ `img/jpeg_progressive`: every scan kind (DC first and refine, interleaved or not; AC first with end-of-band runs; AC refine), tables and restart intervals between scans, restarts within them; coefficients kept for the whole image, then transformed and emitted as baseline colour is (`jpeg_emit_rows`). `test_jpeg` (mutation-checked): progressive files made from baseline ones without loss (`jpegtran`, the same coefficients) decode to exactly their pixels, by the default script, with restarts after every block, by a script of separate DC scans, split bands and refines, and grey; `compare_images.py` (progressive colour, 4:4:4, grey, odd-sized, restarts) and `fuzz_media.py` seeds |
 | MED-21 | Fix VP8L decoding (lossless WebP and VP8L-coded alpha) | P1 | ✓ exact against the reference decoder, with palette, gradient, noise and large-image cases in the corpus |
 
 ## REM — Capture, remote and casting
