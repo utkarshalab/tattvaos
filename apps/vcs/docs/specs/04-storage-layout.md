@@ -182,7 +182,9 @@ object index and have an ownership edge from that ref's full key hash to the
 commit. Symbolic flags are valid only on workspace `HEAD`; its target must equal
 the domain-separated full key hash of a branch in the same ref generation. The
 symbolic attachment does not own the commit independently. This restriction
-forbids symbolic chains and cycles.
+forbids symbolic chains and cycles. When workspace `HEAD` is present, its
+resolved branch target must exactly equal the candidate superblock HEAD commit;
+the branch attachment and repository HEAD cannot be published separately.
 
 #### Ownership catalog
 
@@ -278,7 +280,9 @@ commit's dependencies atomically.
 The complete kind-1 ref root must likewise authenticate the candidate generation
 and match the superblock before any backend callback. Publication also resolves
 every direct commit target, proves its exact ref ownership edge, and resolves
-the optional symbolic workspace `HEAD` within those authenticated catalogs.
+the optional symbolic workspace `HEAD` within those authenticated catalogs. An
+attached workspace additionally proves that selected branch and superblock HEAD
+name the same commit.
 
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
