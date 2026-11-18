@@ -64,6 +64,13 @@ root_hash[0] ^= 1
 assert lib.vcs_ref_root_verify(ctypes.byref(root)) == CORRUPT
 root_hash[0] ^= 1
 
+future_bytes = bytearray(catalog_bytes)
+struct.pack_into("<Q", future_bytes, 8, 32)
+future_catalog = array(future_bytes)
+future_hash = (ctypes.c_ubyte * 32)()
+future_root = RefRoot(future_catalog, len(future_bytes), 31, future_hash)
+assert lib.vcs_ref_root_hash(ctypes.byref(future_root)) == CORRUPT
+
 # Empty generations have a canonical hash too.
 empty_hash = (ctypes.c_ubyte * 32)()
 empty = RefRoot(None, 0, 1, empty_hash)
@@ -99,4 +106,4 @@ padding_bad[-1] = 1
 padding_buffer = array(padding_bad)
 assert lib.vcs_ref_catalog_validate(padding_buffer, len(padding_bad)) == CORRUPT
 
-print("VCS ref catalog: PASS (variable records, names, ordering, root/key hashes, corruption)")
+print("VCS ref catalog: PASS (variable records, names, generations, root/key hashes, corruption)")
