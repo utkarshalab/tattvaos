@@ -876,7 +876,8 @@ ownership_edge_compare_publication:
  ret
 
 ; RDI=vcs_publication. Direct refs must resolve to commits in the authenticated
-; object index. The sole symbolic workspace HEAD must name a branch key.
+; object index and own them through the authenticated ownership catalog. The
+; sole symbolic workspace HEAD names a branch key and adds no second owner.
 validate_ref_targets_publication:
  push rbp
  push rbx
@@ -884,7 +885,7 @@ validate_ref_targets_publication:
  push r13
  push r14
  push r15
- sub rsp,72
+ sub rsp,88
  mov rbx,rdi
  mov rax,[rbx+vcs_publication.ref_root]
  mov r12,[rax+vcs_ref_root.records]
@@ -905,6 +906,29 @@ validate_ref_targets_publication:
  jz .ref_targets_corrupt
  cmp dword [rax+vcs_object_index_record.object_type],VCS_OBJ_COMMIT
  jne .ref_targets_corrupt
+ mov dword [rsp+vcs_ownership_edge.owner_kind],VCS_OWNER_REF
+ mov dword [rsp+vcs_ownership_edge.child_type],VCS_OBJ_COMMIT
+ mov qword [rsp+vcs_ownership_edge.flags],0
+ mov rdi,r12
+ lea rsi,[rsp+vcs_ownership_edge.owner_key]
+ call vcs_ref_key_hash
+ test eax,eax
+ jnz .ref_targets_corrupt
+ mov rax,[r12+16]
+ mov [rsp+vcs_ownership_edge.child_id],rax
+ mov rax,[r12+24]
+ mov [rsp+vcs_ownership_edge.child_id+8],rax
+ mov rax,[r12+32]
+ mov [rsp+vcs_ownership_edge.child_id+16],rax
+ mov rax,[r12+40]
+ mov [rsp+vcs_ownership_edge.child_id+24],rax
+ mov rax,[rbx+vcs_publication.ownership_root]
+ mov rdi,[rax+vcs_ownership_root.records]
+ mov rsi,[rax+vcs_ownership_root.record_count]
+ mov rdx,rsp
+ call ownership_edge_find_publication
+ test rax,rax
+ jz .ref_targets_corrupt
  jmp .ref_target_next
 .ref_symbolic:
  mov rax,[rbx+vcs_publication.ref_root]
@@ -915,11 +939,11 @@ validate_ref_targets_publication:
  cmp byte [r15],VCS_REF_BRANCH
  jne .ref_symbolic_next
  mov rdi,r15
- lea rsi,[rsp+32]
+ lea rsi,[rsp+vcs_ownership_edge.owner_key]
  call vcs_ref_key_hash
  test eax,eax
  jnz .ref_targets_corrupt
- lea rdi,[rsp+32]
+ lea rdi,[rsp+vcs_ownership_edge.owner_key]
  lea rsi,[r12+16]
  call ids_equal_publication
  test eax,eax
@@ -946,7 +970,7 @@ validate_ref_targets_publication:
 .ref_targets_corrupt:
  mov eax,VCS_ERR_CORRUPT
 .ref_targets_done:
- add rsp,72
+ add rsp,88
  pop r15
  pop r14
  pop r13
