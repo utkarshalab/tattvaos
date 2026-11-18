@@ -38,4 +38,6 @@ reservation totals, authenticated ref-root binding, callback order and preflight
 atomicity, direct commit-target closure, the required ref-key ownership edge and
 symbolic `HEAD` resolution. It also stages a canonical scalable commit and
 rejects a transaction missing its required tree dependency edge. The standard
-gate then runs the remaining module and differential suites.
+suite rejects an authenticated split state where the selected branch and
+superblock HEAD name different valid commits. The standard gate then runs the
+remaining module and differential suites.
