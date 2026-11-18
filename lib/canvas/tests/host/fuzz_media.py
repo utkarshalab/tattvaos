@@ -47,6 +47,13 @@ def seeds():
     save('baseline.jpg', rgb, 'JPEG', quality=80)
     save('sub420.jpg', rgb, 'JPEG', quality=60, subsampling=2)
     save('progressive.jpg', rgb, 'JPEG', quality=70, progressive=True)
+    save('image.pcx', rgb, 'PCX')
+    save('palette.pcx', rgb.convert('P'), 'PCX')
+    save('palette.tif', rgb.convert('P'), 'TIFF')
+    save('rle.tga', rgb.convert('RGBA'), 'TGA', compression='tga_rle')
+    save('dxt1.dds', rgb.convert('RGBA'), 'DDS', pixel_format='DXT1')
+    save('dxt5.dds', rgb.convert('RGBA'), 'DDS', pixel_format='DXT5')
+    save('bc5.dds', rgb, 'DDS', pixel_format='BC5')
     save('progressive_restart.jpg', rgb, 'JPEG', quality=70, progressive=True,
          restart_marker_blocks=2)
     save('anim.gif', img.convert('P'), 'GIF')
