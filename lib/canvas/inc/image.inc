@@ -65,6 +65,35 @@ struc WebPInfo
     .xmp_len:        resq 1
 endstruc
 
+%ifndef JPEG_HUFF_TABLE_SIZE
+%define JPEG_HUFF_TABLE_SIZE 1556          ; a HuffTable (img/jpeg_huff)
+%endif
+
+; A JPEG being decoded (img/jpeg, img/jpeg_progressive)
+struc JpegImage
+    .width:         resd 1
+    .height:        resd 1
+    .components:    resb 1
+    .progressive:   resb 1
+    .qtables:       resq 1
+    .htables:       resq 1
+    .restart:       resd 1
+    .pixbuf:        resq 1
+    .arena:         resq 1
+    .component_id:  resb 4
+    .component_h:   resb 4
+    .component_v:   resb 4
+    .component_qt:  resb 4
+    .max_h:         resb 1
+    .max_v:         resb 1
+    .scan_count:    resb 1
+    .scan_id:       resb 4
+    .scan_dc:       resb 4
+    .scan_ac:       resb 4
+    .entropy:       resq 1
+    .entropy_end:   resq 1
+endstruc
+
 ; One JPEG component's samples for the whole image (jpeg_upsample_row):
 ; int16 0 to 255, stride samples a row, width and height the real ones
 ; (the image's, scaled by h / max_h and v / max_v, rounded up), and the
