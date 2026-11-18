@@ -80,16 +80,19 @@ complete kind/name pairs for the sole symbolic form, workspace `HEAD`.
 authenticating the complete object-index generation. Every staged object's ID,
 type and length must match that index before the backend begins. No authenticated
 index record may claim a creation transaction newer than the candidate. The
-coordinator also validates the recovered predecessor and binds the backend
+records created by the candidate transaction must correspond exactly to the
+strictly unique staged-object set; authenticated phantom records are rejected.
+The coordinator also validates the recovered predecessor and binds the backend
 transaction to an exact one-generation successor, rejecting replay, skipped
 generations, sequence rollback and repository substitution before `begin`.
-Nonzero HEAD must resolve
-to an indexed commit, ownership children must resolve with their declared type,
-and immutable owners must resolve in that same authenticated index generation.
+Nonzero HEAD must resolve to an indexed commit, ownership children must resolve
+with their declared type, and immutable owners must resolve in that same
+authenticated index generation.
 Newly staged objects form a strictly ID-sorted unique set and their index records
-must carry the current transaction sequence; older deduplicated objects are not
-restaged. Each new object's allocator-provided envelope locator must exactly
-match its authenticated index record. Its complete physical envelope is checked
+must carry the current transaction sequence; older deduplicated objects retain
+their earlier creation sequence and are not restaged. Each new object's
+allocator-provided envelope locator must exactly match its authenticated index
+record. Its complete physical envelope is checked
 for format, type, ID, length, extent geometry, transaction, reserved bytes and
 checksum before the backend receives it. The complete staged extent images and
 allocator locator list are then matched to the canonical payload, including
