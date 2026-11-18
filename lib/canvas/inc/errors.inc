@@ -195,6 +195,7 @@
 %define EQUOTA_MEM      1800    ; Memory quota exceeded
 %define EQUOTA_SURF     1801    ; Surface quota exceeded
 %define EQUOTA_RATE     1802    ; Rate limit exceeded
+%define EQUOTA_BUF      1803    ; Buffer count quota exceeded
 
 %define EGPU_UNSUPPORTED 1900   ; GPU family not supported
 %define EGPU_CMD        1901    ; GPU command error
