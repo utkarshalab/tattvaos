@@ -115,6 +115,24 @@ The hash authenticates a specific generation but does not make mutable records
 content objects. The repository superblock stores each root and generation that
 must be published together.
 
+## Ref-key hashes
+
+Symbolic ref targets use the complete key hash:
+
+```text
+SHA-256(
+    "UVCSRFK1"
+    || le16(1)
+    || u8(ref_kind)
+    || u8(name_length)
+    || name_bytes
+)
+```
+
+The full kind and name are still compared by catalog lookup semantics; this hash
+is never a shortened display ID. Scalable format v3 permits symbolic refs only
+for the reserved workspace `HEAD`, whose target must be a branch key.
+
 ## UXFS subtree hashes
 
 The scalable UXFS subtree-hash ABI is not available yet. VCS object IDs therefore
