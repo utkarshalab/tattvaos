@@ -32,6 +32,8 @@ extern psd_decode
 extern webp_decode
 extern camera_decode
 extern pixbuf_premultiply
+extern image_meta
+extern pixbuf_orient
 
 section .text
 
@@ -82,10 +84,14 @@ image_sniff:
 
 ; Decode any self-describing supported image.
 ; IN rdi=arena, rsi=data, rdx=len, rcx=requested SVG width, r8=SVG height.
-; OUT rax=PixBuf* or 0.
+; OUT rax=PixBuf* or 0. JPEG, PNG and WebP are turned upright by their
+; EXIF orientation (img/meta); TIFF's decoder does it itself.
+%define DEC_FORMAT ImageMeta_size       ; locals: an ImageMeta, the format
+%define DEC_FRAME  (((ImageMeta_size + 8 + 15) & ~15) + 8)
 global image_decode
 image_decode:
     PROLOGUE_SAVE rbx,r12,r13,r14,r15
+    sub rsp,DEC_FRAME
     mov rbx,rdi
     mov r12,rsi
     mov r13,rdx
@@ -94,6 +100,7 @@ image_decode:
     mov rdi,r12
     mov rsi,r13
     call image_sniff
+    mov [rsp+DEC_FORMAT],eax
     cmp eax,IMAGE_FMT_PNG
     je .decode_png
     cmp eax,IMAGE_FMT_JPEG
@@ -266,11 +273,33 @@ image_decode:
     ; (SVG excepted: it is drawn premultiplied).
     test rax,rax
     jle .decode_return
-    mov rbx,rax
-    mov rdi,rax
+    mov r14,rax
+    mov eax,[rsp+DEC_FORMAT]
+    cmp eax,IMAGE_FMT_JPEG
+    je .orient
+    cmp eax,IMAGE_FMT_PNG
+    je .orient
+    cmp eax,IMAGE_FMT_WEBP
+    jne .premultiply
+.orient:
+    xor edi,edi                         ; the orientation needs no arena
+    mov rsi,r12
+    mov rdx,r13
+    lea rcx,[rsp]
+    call image_meta
+    mov rdi,rbx
+    mov rsi,r14
+    mov edx,[rsp+ImageMeta.orientation]
+    call pixbuf_orient
+    test rax,rax                        ; out of memory: as it was stored
+    jz .premultiply
+    mov r14,rax
+.premultiply:
+    mov rdi,r14
     call pixbuf_premultiply
-    mov rax,rbx
+    mov rax,r14
 .decode_return:
+    add rsp,DEC_FRAME
     EPILOGUE_RESTORE rbx,r12,r13,r14,r15
     ret
 image_sniff_chk_qoi:
