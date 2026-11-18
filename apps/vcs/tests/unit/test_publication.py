@@ -163,9 +163,16 @@ ownership_root = OwnershipRoot(edges, len(edges), 9, ownership_hash)
 commit_payload = b"canonical head commit"
 commit_id = oid(4, commit_payload)
 ref_name = b"main"
-ref_record = (struct.pack("<BBHIQ", 1, len(ref_name), 1, 0, 7)
-              + commit_id + ref_name
-              + bytes((-len(ref_name)) & 7))
+branch_record = (struct.pack("<BBHIQ", 1, len(ref_name), 1, 0, 7)
+                 + commit_id + ref_name
+                 + bytes((-len(ref_name)) & 7))
+branch_key = hashlib.sha256(b"UVCSRFK1" + struct.pack("<HBB", 1, 1,
+                                                       len(ref_name))
+                                + ref_name).digest()
+head_name = b"HEAD"
+head_record = (struct.pack("<BBHIQ", 4, len(head_name), 2, 0, 3)
+               + branch_key + head_name + bytes((-len(head_name)) & 7))
+ref_record = branch_record + head_record
 ref_records = array(ref_record)
 ref_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 1, 0, 9,
                                        len(ref_record))
@@ -370,6 +377,28 @@ publication = request(backend)
 publication.root = ref_candidate_buffer
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
+
+for target_offset in (16, len(branch_record) + 16):
+    dangling_bytes = bytearray(ref_record)
+    dangling_bytes[target_offset] ^= 1
+    dangling_records = array(dangling_bytes)
+    dangling_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 1, 0, 9,
+                                                len(dangling_bytes))
+    dangling_hash = array(hashlib.sha256(dangling_frame
+                                         + dangling_bytes).digest())
+    dangling_root = RefRoot(dangling_records, len(dangling_bytes), 9,
+                            dangling_hash)
+    dangling_candidate = bytearray(root_image)
+    dangling_candidate[88:120] = bytes(dangling_hash)
+    dangling_candidate[480:512] = hashlib.sha256(
+        dangling_candidate[:480]).digest()
+    dangling_candidate_buffer = array(dangling_candidate)
+    backend, state = backend_for()
+    publication = request(backend)
+    publication.root = dangling_candidate_buffer
+    publication.ref_root = ctypes.pointer(dangling_root)
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+    assert publication.result_phase == 0xBAD and state["events"] == []
 
 # Publication must be the exact successor of the recovered repository root and
 # consume that root's advertised transaction sequence before begin.
@@ -577,4 +606,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (authenticated object/ownership/ref roots, extent chains, transaction pins, atomic failures)")
+print("VCS publication: PASS (authenticated roots/ref closure, extent chains, transaction pins, atomic failures)")
