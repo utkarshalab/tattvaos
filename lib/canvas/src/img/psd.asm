@@ -177,7 +177,7 @@ psd_decode:
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     mov rdi,[rbx+PixBuf.data]
     mov rsi,[rsp+32]
