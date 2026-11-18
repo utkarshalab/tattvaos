@@ -336,8 +336,8 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| COL-01 | Exact sRGB transfer curves (replace approximations) | P2 | ◐ `color/srgb` approx |
-| COL-02 | ICC v2/v4 matrix + TRC profiles per output | P2 | ◐ `color/icc_parse`, `matrix`, `trc` |
+| COL-01 | Exact sRGB transfer curves (replace approximations) | P2 | ✓ `color/srgb`: `srgb_eotf_f64` / `srgb_oetf_f64` the curves themselves (`umath_pow_f64`); its tables built from them, rounded to nearest, `srgb_encode_lut` (16-bit linear to codes) exactly by each code's threshold; `test_icc` (every code back to itself), mutation-checked |
+| COL-02 | ICC v2/v4 matrix + TRC profiles per output | P2 | ◐ images: `color/icc_transform` turns an embedded matrix/TRC profile (RGB or grey; curv identity, gamma or table, para 0 to 4) into sRGB through one matrix, and `image_decode` applies it to JPEG, PNG, WebP and TIFF (none for a profile that maps every code to itself); `test_icc` against a model of the reference formulas (mutation-checked) and `compare_images.py` against the colour management library (P3, Adobe RGB, Rec.2020, grey, para 4, a profile in two JPEG chunks: 48 to 71 dB). Not yet per output; A2B tables are COL-03 |
 | COL-03 | ICC v4 parametric curves and LUT-based profiles | P3 | |
 | COL-04 | Linear-light blending when any surface is linear or HDR | P3 | ◐ `color/blend_linear` |
 | COL-05 | HDR (PQ/HLG) → SDR tone mapping, exact curves, quality presets | P3 | ◐ `color/tonemap` approx |
@@ -579,9 +579,9 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 
 | ID | Item | Phase | Notes |
 |---|---|---|---|
-| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 101 files of every supported format against a reference decoder, exact for lossless, a PSNR floor of 45 dB for lossy (every lossy file is above 51: JPEG chroma is upsampled as the reference does, `jpeg_upsample_row`); `fuzz_media.py` fuzzes every format |
+| MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 108 files of every supported format against a reference decoder, exact for lossless, a PSNR floor of 45 dB for lossy (every lossy file is above 51: JPEG chroma is upsampled as the reference does, `jpeg_upsample_row`); `fuzz_media.py` fuzzes every format |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ✓ `img/sniff` `image_decode`: the format from its bytes (PNG, JPEG, GIF, BMP, TGA, PPM, QOI, WebP, TIFF, SVG and more), then its decoder; `compare_images.py` against a reference decoder and `fuzz_media.py` in `make check` |
-| MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | ✓ `img/meta` `image_meta`: orientation, the ICC profile (JPEG chunks joined in order, PNG iCCP inflated, checked with `icc_probe` and its size) and XMP from JPEG, PNG, WebP and TIFF; `pixbuf_orient` all eight; `image_decode` turns JPEG, PNG and WebP upright. `test_meta` (mutation-checked) and `compare_images.py` (each orientation in each format against the reference decoder turned upright). The profile is read, not yet applied to the pixels |
+| MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | ✓ `img/meta` `image_meta`: orientation, the ICC profile (JPEG chunks joined in order, PNG iCCP inflated, checked with `icc_probe` and its size) and XMP from JPEG, PNG, WebP and TIFF; `pixbuf_orient` all eight; `image_decode` turns JPEG, PNG and WebP upright. `test_meta` (mutation-checked) and `compare_images.py` (each orientation in each format against the reference decoder turned upright). The profile is applied by `image_decode` (COL-02) |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
 | MED-05 | Progressive / streaming decode display | P3 | |
 | MED-06 | Decode cancellation and time budgets | P3 | |
