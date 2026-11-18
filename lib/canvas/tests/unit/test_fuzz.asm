@@ -18,9 +18,12 @@
 ; random bytes, its checksum made right three times in four so the parser
 ; reads on. ICC profiles (icc_transform_build, then icc_transform_pixbuf
 ; when one is made): an RGB profile of every curve kind with random bytes,
-; tag offsets and sizes, and cut short. Each must not crash, and most
+; tag offsets and sizes, and cut short. Settings files (config_parse): a
+; file of every kind of line and value, 1 to 16 random bytes and cut
+; short, against a schema of every kind of key. Each must not crash, and most
 ; must get through: a third of the EDIDs parsed (about 45% are), a
-; twentieth of the profiles made (about 9%).
+; twentieth of the profiles made (about 9%), a twentieth of the settings
+; files with no mistake at all.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
@@ -31,6 +34,7 @@
 %include "inc/channel.inc"
 %include "inc/backend.inc"
 %include "inc/struct_offsets.inc"
+%include "inc/config.inc"
 
 extern arena_init
 extern client_accept_trusted
@@ -43,6 +47,7 @@ extern edid_parse
 extern edid_find_preferred_mode
 extern icc_transform_build
 extern icc_transform_pixbuf
+extern config_parse
 
 %define HEAP_SIZE   (4 * 1024 * 1024)  ; small, so a stray read past it faults
 %define ROUNDS      12000               ; messages and records a case
@@ -81,6 +86,10 @@ test_fuzz_main:
     mov rax, 0x14057B7EF767814F
     mov [rel seed], rax
     call tf_icc
+    add ebx, eax
+    mov rax, 0x2127599BF4325C37
+    mov [rel seed], rax
+    call tf_config
     add ebx, eax
     mov eax, ebx
     pop rbx
@@ -587,7 +596,77 @@ tf_icc:
     pop rbx
     ret
 
+tf_config:
+    push rbx
+    push r12
+    push r13
+    push r14
+    sub rsp, 8
+    mov qword [rel reached], 0
+    mov ebx, PARSE_ROUNDS
+.round:
+    lea rdi, [rel conf_buf]
+    lea rsi, [rel conf_seed]
+    mov ecx, conf_seed_len
+    rep movsb
+    SCRIBBLE conf_buf, conf_seed_len
+    mov r14d, conf_seed_len             ; a quarter cut short
+    mov edi, 4
+    call below
+    test eax, eax
+    jnz .parse
+    mov edi, conf_seed_len
+    call below
+    mov r14d, eax
+.parse:
+    lea rdi, [rel conf_buf]
+    mov esi, r14d
+    lea rdx, [rel conf_schema]
+    lea rcx, [rel conf_out]
+    lea r8, [rel conf_result]
+    call config_parse
+    test rax, rax
+    jnz .next
+    inc qword [rel reached]
+.next:
+    dec ebx
+    jnz .round
+    xor eax, eax                        ; enough without a mistake
+    cmp qword [rel reached], PARSE_ROUNDS / 20
+    setb al
+    add rsp, 8
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
 section .rodata
+; a settings file of every kind of line, and a schema of every kind of key
+conf_seed:
+    db "# settings", 13, 10
+    db "name = canvas  ; inline", 10
+    db "count = -12", 10
+    db "[a]", 10
+    db 9, "flag = yes", 13, 10
+    db "mode = slow", 10
+    db "[ b ]", 10
+    db 'text = "q"\
+	#"', 10
+    db "level = 9000", 10
+conf_seed_len equ $ - conf_seed
+conf_modes: db "fast", 0, "slow", 0, 0
+conf_default: db "x", 0
+align 8
+conf_schema:
+    dq 6
+    CONFIG_KEY "", "name", CONFIG_STRING, 0, 16, 0, conf_default
+    CONFIG_KEY "", "count", CONFIG_INT, 16, -100, 100, 0
+    CONFIG_KEY "a", "flag", CONFIG_BOOL, 24, 0, 0, 0
+    CONFIG_KEY "a", "mode", CONFIG_ENUM, 32, conf_modes, 0, 0
+    CONFIG_KEY "b", "text", CONFIG_STRING, 40, 32, 0, conf_default
+    CONFIG_KEY "b", "level", CONFIG_INT, 72, 0, 10000, 1
+
 ; a monitor's EDID 1.4 block: a 1920x1080 preferred timing (148.5 MHz),
 ; a name descriptor; and the RGB profile of test_icc (P3 colorants; para
 ; 2, a table and a gamma curve)
@@ -661,3 +740,6 @@ fake_backend:   resb Backend_size
 icc_buf:        resb 4096
 icc_image:      resb PixBuf_size
 icc_pixels:     resd 16
+conf_buf:       resb 256
+conf_out:       resb 80
+conf_result:    resb ConfigResult_size
