@@ -147,8 +147,9 @@ payload lengths. Its canonical fixed record is 64 bytes:
 
 Records are strictly sorted by all 32 ID bytes. Duplicate IDs must resolve to
 the same type, length and exact payload; otherwise publication fails as a hash
-collision. The physical index is a UXFS transactional B-tree. Its root hash uses
-root kind 5 from `02-hashing-and-ids.md`.
+collision. A record's creation transaction cannot exceed the candidate
+repository transaction. The physical index is a UXFS transactional B-tree. Its
+root hash uses root kind 5 from `02-hashing-and-ids.md`.
 
 #### Ref catalog
 
