@@ -75,7 +75,7 @@ ico_decode:
     call pixbuf_create
     pop rsi
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     lea r8,[rsi+40]
     mov r9,[rbx+PixBuf.data]
