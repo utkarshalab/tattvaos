@@ -1037,7 +1037,14 @@ validate_ref_targets_publication:
  lea rsi,[r12+16]
  call ids_equal_publication
  test eax,eax
- jnz .ref_target_next
+ jz .ref_symbolic_next
+ mov rax,[rbx+vcs_publication.root]
+ lea rdi,[r15+16]
+ lea rsi,[rax+vcs_superblock.head]
+ call ids_equal_publication
+ test eax,eax
+ jz .ref_targets_corrupt
+ jmp .ref_target_next
 .ref_symbolic_next:
  movzx eax,byte [r15+1]
  add rax,7
