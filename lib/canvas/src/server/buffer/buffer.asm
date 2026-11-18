@@ -18,6 +18,9 @@
 %define Buffer_ATTACHED   2
 %define Buffer_SCANOUT    3
 
+extern quota_take_buffer
+extern quota_give_buffer
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -99,6 +102,13 @@ buffer_create:
     imul rax, rdx
     mov r14, rax            ; size
 
+    ; Within the client's quota (QA-06), given back if anything fails
+    mov rdi, r12
+    mov rsi, r14
+    call quota_take_buffer
+    test rax, rax
+    jnz .out
+
     ; The header first: nothing to undo if the client's arena is out of room
     mov rdi, [r12 + Client.arena]
     mov esi, Buffer_size
@@ -116,7 +126,7 @@ buffer_create:
     mov esi, MEM_DMA
     call ut_mem_alloc
     test rax, rax
-    js .out
+    js .no_pixels
     mov rcx, [rsp]
     mov [rcx + Buffer.base], rax
     mov [rcx + Buffer.dma_addr], rdx
@@ -153,10 +163,20 @@ buffer_create:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
+.no_pixels:
+    mov r13, rax                        ; ut_mem_alloc's error
+    mov rdi, r12
+    mov rsi, r14
+    call quota_give_buffer
+    mov rax, r13
+    jmp .out
 .no_handle:
     mov rdi, [rcx + Buffer.region]
     call ut_mem_free
 .oom:
+    mov rdi, r12
+    mov rsi, r14
+    call quota_give_buffer
     mov rax, -(ENOMEM)
     jmp .out
 .bad_format:
@@ -230,6 +250,11 @@ buffer_destroy:
     mov rax, [r13 + Buffer.client_next]
     mov [rcx], rax
 .unlinked:
+
+    ; Its quota given back
+    mov rdi, [r13 + Buffer.client]
+    mov rsi, [r13 + Buffer.size]
+    call quota_give_buffer
 
     ; Free the pixels, wiped first: whoever gets the pages next sees none
     ; of this client's (SEC-07)
