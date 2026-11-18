@@ -78,10 +78,12 @@ complete kind/name pairs for the sole symbolic form, workspace `HEAD`.
 
 `publication.asm` preflights complete object IDs and ownership records before
 authenticating the complete object-index generation. Every staged object's ID,
-type and length must match that index before the backend begins. The coordinator
-also validates the recovered predecessor and binds the backend transaction to an
-exact one-generation successor, rejecting replay, skipped generations, sequence
-rollback and repository substitution before `begin`. Nonzero HEAD must resolve
+type and length must match that index before the backend begins. No authenticated
+index record may claim a creation transaction newer than the candidate. The
+coordinator also validates the recovered predecessor and binds the backend
+transaction to an exact one-generation successor, rejecting replay, skipped
+generations, sequence rollback and repository substitution before `begin`.
+Nonzero HEAD must resolve
 to an indexed commit, ownership children must resolve with their declared type,
 and immutable owners must resolve in that same authenticated index generation.
 Newly staged objects form a strictly ID-sorted unique set and their index records
