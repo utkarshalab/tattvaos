@@ -46,6 +46,9 @@ def seeds():
     save('interlaced.png', rgb, 'PNG', interlace=1)
     save('baseline.jpg', rgb, 'JPEG', quality=80)
     save('sub420.jpg', rgb, 'JPEG', quality=60, subsampling=2)
+    save('progressive.jpg', rgb, 'JPEG', quality=70, progressive=True)
+    save('progressive_restart.jpg', rgb, 'JPEG', quality=70, progressive=True,
+         restart_marker_blocks=2)
     save('anim.gif', img.convert('P'), 'GIF')
     save('rgb.bmp', rgb, 'BMP')
     save('rgba.tga', img, 'TGA')
