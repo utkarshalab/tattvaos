@@ -118,7 +118,7 @@ exr_decode:
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax,rax
-    jz .bad
+    jle .bad
     mov [rsp+32],rax
     ; Initialize alpha and RGB deterministically.
     mov rdi,[rax+PixBuf.data]
