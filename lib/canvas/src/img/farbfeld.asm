@@ -43,7 +43,7 @@ farbfeld_decode:
     pop r15
     pop r14
     test rax,rax
-    jz .bad
+    jle .bad
     mov rbx,rax
     mov rdi,[rbx+PixBuf.data]
     add r12,16
