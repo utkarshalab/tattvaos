@@ -177,6 +177,10 @@ HEAD is the superblock commit ID. An attached branch is represented by a
 reserved `workspace` ref named `HEAD` whose target identifies the branch record;
 detached HEAD has no such record. Tags are immutable unless an explicit policy
 operation authorizes replacement.
+Every direct ref target must resolve to a commit in the candidate authenticated
+object index. Symbolic flags are valid only on workspace `HEAD`; its target must
+equal the domain-separated full key hash of a branch in the same ref generation.
+This restriction forbids symbolic chains and cycles.
 
 #### Ownership catalog
 
@@ -265,7 +269,9 @@ key is the current transaction's canonical identity and whose child type matches
 the object. Publication proves complete pin coverage and staged-edge membership
 in the authenticated ownership root before opening storage.
 The complete kind-1 ref root must likewise authenticate the candidate generation
-and match the superblock before any backend callback.
+and match the superblock before any backend callback. Publication also resolves
+every direct commit target and the optional symbolic workspace `HEAD` within
+those authenticated catalogs.
 
 Failure before step seven leaves the previous generation authoritative. Failure
 during or after the final barrier poisons the mount until remount determines the
