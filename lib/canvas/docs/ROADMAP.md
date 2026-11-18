@@ -581,7 +581,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 |---|---|---|---|
 | MED-01 | Decoder test coverage for every supported format | P0 | ✓ `compare_images.py` in `make check`: 72 files of every supported format against a reference decoder, exact for lossless, a PSNR floor for lossy; progressive JPEG, not supported (MED-20), must be refused, and is; `fuzz_media.py` fuzzes every format |
 | MED-02 | Generic `image_decode` with format sniffing | P1 | ✓ `img/sniff` `image_decode`: the format from its bytes (PNG, JPEG, GIF, BMP, TGA, PPM, QOI, WebP, TIFF, SVG and more), then its decoder; `compare_images.py` against a reference decoder and `fuzz_media.py` in `make check` |
-| MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | |
+| MED-03 | EXIF orientation, embedded ICC, XMP metadata | P2 | ✓ `img/meta` `image_meta`: orientation, the ICC profile (JPEG chunks joined in order, PNG iCCP inflated, checked with `icc_probe` and its size) and XMP from JPEG, PNG, WebP and TIFF; `pixbuf_orient` all eight; `image_decode` turns JPEG, PNG and WebP upright. `test_meta` (mutation-checked) and `compare_images.py` (each orientation in each format against the reference decoder turned upright). The profile is read, not yet applied to the pixels |
 | MED-04 | Decode-to-scale for JPEG and WebP | P3 | |
 | MED-05 | Progressive / streaming decode display | P3 | |
 | MED-06 | Decode cancellation and time budgets | P3 | |
