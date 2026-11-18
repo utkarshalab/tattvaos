@@ -98,6 +98,7 @@ struct.pack_into("<IIQqii", commit_header, 8, 0, 0, 1, 0, 0,
 commit_header[40:72] = tree_id
 commit_payload = bytes(commit_header) + commit_message
 commit_id = oid(4, commit_payload)
+alternate_commit_id = hashlib.sha256(b"indexed alternate commit").digest()
 object_specs = [(1, b"first immutable payload"),
                 (2, bytes((index * 73) & 0xff for index in range(5000))),
                 (4, commit_payload)]
@@ -195,6 +196,7 @@ catalog = [(bytes(objects[index].object_id), 100 + index,
             objects[index].length, objects[index].object_type)
            for index in range(len(objects))]
 catalog.append((tree_id, 200, 96, 3))
+catalog.append((alternate_commit_id, 201, 256, 4))
 index_records = (IndexRecord * len(catalog))()
 for slot, (object_id, envelope, length, object_type) in enumerate(
         sorted(catalog, key=lambda value: value[0])):
@@ -434,6 +436,19 @@ for target_offset in (16, len(branch_record) + 16):
     assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
     assert publication.result_phase == 0xBAD and state["events"] == []
 
+# Attached HEAD is one atomic state: its selected branch target must equal the
+# candidate superblock HEAD even when both IDs independently name valid commits.
+split_head_candidate = bytearray(root_image)
+split_head_candidate[56:88] = alternate_commit_id
+split_head_candidate[480:512] = hashlib.sha256(
+    split_head_candidate[:480]).digest()
+split_head_candidate_buffer = array(split_head_candidate)
+backend, state = backend_for()
+publication = request(backend)
+publication.root = split_head_candidate_buffer
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+
 # A branch cannot keep a commit live unless the authenticated ownership catalog
 # contains the exact ref-key-to-commit edge.
 ref_edge_index = next(index for index, edge in enumerate(edges)
@@ -668,4 +683,4 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (commit/ref ownership closure, extent chains, transaction pins, atomic failures)")
+print("VCS publication: PASS (commit/ref/HEAD closure, extent chains, transaction pins, atomic failures)")
