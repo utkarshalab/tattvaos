@@ -178,6 +178,11 @@ parent, while merge commits have two distinct nonzero parents with merge flag
 bit 0 set.
 Generation is validated from parents and is not trusted as an authorization
 claim. Time zero is canonical when no trusted wall clock exists.
+Local validation rejects unknown flags, noncanonical parent forms, invalid
+generation floors, UTC offsets outside -1440..1440, NUL message bytes and
+nonzero reserved bytes. Ownership planning verifies the complete type-4 object
+ID and emits one immutable edge to the root tree plus one per declared parent;
+referenced-object loading later proves their exact types and parent generations.
 
 ## Change object: type 5
 
