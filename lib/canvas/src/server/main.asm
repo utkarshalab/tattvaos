@@ -28,6 +28,7 @@ extern displays_step
 extern taskbar_step_all
 extern input_repeat_deadline
 extern server_init
+extern settings_load
 extern server_poll
 
 %define SERVER_ARENA_BYTES  (16 * 1024 * 1024)
@@ -123,6 +124,11 @@ canvasd_init:
     lea rsi, [login_verify]
     call greeter_set_verify
 .no_greeter:
+
+    ; canvas.conf, if there is one: logging, key repeat, the idle lock, high
+    ; contrast, the lid (server/settings); without it the defaults stand
+    lea rdi, [server]
+    call settings_load
 
     ; A taskbar on each output, under the login screen until it goes
     lea rdi, [server]
