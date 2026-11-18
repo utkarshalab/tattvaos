@@ -35,6 +35,9 @@ extern window_parent_gone
 %define SURFACE_ROLE_LAYER     3
 %define SURFACE_ROLE_SUBSURFACE 4
 
+extern quota_take_surface
+extern quota_give_surface
+
 section .text
 
 ; ---------------------------------------------------------------------------
@@ -78,6 +81,10 @@ surface_create:
     ASSERT_PTR rbx
     ASSERT_PTR r12
     mov r15, [r12 + Client.arena]       ; a surface lives with its client
+    mov rdi, r12                        ; within its quota (QA-06)
+    call quota_take_surface
+    test rax, rax
+    jnz .out
 
     ; Allocate surface
     ; Surface includes double-buffered state (current + pending)
@@ -201,7 +208,10 @@ surface_create:
     ret
 
 .oom:
+    mov rdi, r12
+    call quota_give_surface
     mov rax, -(ENOMEM)
+.out:
     EPILOGUE_RESTORE rbx, r12, r13, r14, r15
     ret
 
@@ -257,6 +267,8 @@ surface_destroy:
     mov rax, [r13 + Surface.client_next]
     mov [rcx], rax
 .unlinked:
+    mov rdi, [r13 + Surface.client]     ; its quota given back
+    call quota_give_surface
 
     ; Destroy regions
     mov rdi, [r13 + Surface.current + SurfaceState.damage]
