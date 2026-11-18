@@ -165,7 +165,7 @@ IMG_SRCS := \
     $(SRCDIR)/img/gif_animation.asm \
     $(SRCDIR)/img/bmp.asm \
     $(SRCDIR)/img/qoi.asm \
-    $(SRCDIR)/img/encode.asm \
+    $(SRCDIR)/img/encode.asm     $(SRCDIR)/img/meta.asm \
     $(SRCDIR)/img/tga.asm \
     $(SRCDIR)/img/pnm.asm \
     $(SRCDIR)/img/raw.asm \
@@ -639,7 +639,7 @@ UNIT_SRCS := \
     tests/unit/test_tile_diff.asm \
     tests/unit/test_rfb.asm \
     tests/unit/test_inflate.asm \
-    tests/unit/test_png.asm \
+    tests/unit/test_png.asm     tests/unit/test_meta.asm \
     tests/unit/test_webp.asm \
     tests/unit/test_vec.asm \
     tests/unit/test_tree.asm \
@@ -762,7 +762,7 @@ $(OBJDIR)/tests/cts/%.o: tests/cts/%.asm $(HEADERS)
 
 HOSTDIR       := $(BUILDDIR)/host
 HOST_SUITES   := arena str map handle ring vec tree misc gpu proto client surface golden server input greeter window taskbar ui_text clientlib fields region quota tile_diff \
-                 inflate icc record_replay rfb webp png jpeg fuzz log
+                 inflate icc record_replay rfb webp png meta jpeg fuzz log
 HOST_LIB_OBJS := $(filter-out $(UT_OBJS) $(OBJDIR)/server/main.o,$(ALL_OBJS))
 HOST_LDFLAGS  := -nostdlib -static --gc-sections -e _start
 HOST_TESTS    := $(addprefix $(HOSTDIR)/test_,$(HOST_SUITES))
