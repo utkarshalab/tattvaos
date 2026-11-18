@@ -213,6 +213,21 @@ vcs_ref_root_hash:
  call vcs_ref_catalog_validate
  test eax,eax
  jnz .root_done
+ mov rdi,r12
+ lea rsi,[r12+r13]
+.root_generation_loop:
+ cmp rdi,rsi
+ jae .root_generations_valid
+ mov rax,[rdi+8]
+ cmp rax,[rbx+vcs_ref_root.generation]
+ ja .root_corrupt
+ movzx eax,byte [rdi+1]
+ add rax,7
+ and rax,-8
+ add rax,VCS_REF_HEADER
+ add rdi,rax
+ jmp .root_generation_loop
+.root_generations_valid:
  mov [rsp+112],r13
  mov rdi,rsp
  call sha256_init
