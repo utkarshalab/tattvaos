@@ -5,6 +5,7 @@
 %include "include/superblock.inc"
 %include "include/ownership.inc"
 %include "include/ref_catalog.inc"
+%include "include/commit_object.inc"
 %define VCS_PUBLICATION_IMPLEMENTATION
 %include "include/publication.inc"
 bits 64
@@ -14,6 +15,7 @@ extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate,vcs_ownership_catalog_validate
 extern vcs_ownership_root_verify
 extern vcs_ref_root_verify,vcs_ref_key_hash
+extern vcs_commit_ownership_edges
 extern vcs_superblock_verify,vcs_superblock_select_latest
 extern sha256_hash
 
@@ -290,6 +292,14 @@ vcs_publication_commit:
  call ids_equal_publication
  test eax,eax
  jz .corrupt
+ cmp r15d,VCS_OBJ_COMMIT
+ jne .object_commit_valid
+ mov rdi,rbx
+ mov rsi,[rsp+40]
+ call validate_staged_commit_publication
+ test eax,eax
+ jnz .done
+.object_commit_valid:
  ; The staged set is canonical, scalable, and duplicate-free without an
  ; auxiliary allocation: callers provide strict unsigned ID order.
  test r14,r14
@@ -873,6 +883,86 @@ ownership_edge_compare_publication:
 .ownership_compare_done:
  pop r12
  pop rbx
+ ret
+
+; RDI=publication, RSI=staged commit. Require every canonical dependency edge
+; in both the insertion batch and authenticated candidate ownership catalog.
+validate_staged_commit_publication:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,296
+ mov rbx,rdi
+ mov rbp,rsi
+ mov rax,[rbp+vcs_publish_object.payload]
+ mov [rsp+vcs_commit_ownership.payload],rax
+ mov rax,[rbp+vcs_publish_object.length]
+ mov [rsp+vcs_commit_ownership.length],rax
+ lea rax,[rbp+vcs_publish_object.id]
+ mov [rsp+vcs_commit_ownership.commit_id],rax
+ lea rax,[rsp+48]
+ mov [rsp+vcs_commit_ownership.edges],rax
+ mov qword [rsp+vcs_commit_ownership.edge_capacity],3
+ mov qword [rsp+vcs_commit_ownership.result_edges],0
+ mov rdi,rsp
+ call vcs_commit_ownership_edges
+ test eax,eax
+ jnz .staged_commit_done
+ xor r12d,r12d
+.staged_commit_edge_loop:
+ cmp r12,[rsp+vcs_commit_ownership.result_edges]
+ jae .staged_commit_ok
+ mov rax,r12
+ imul rax,vcs_ownership_edge_size
+ lea r14,[rsp+48+rax]
+ mov rax,[rbx+vcs_publication.ownership_root]
+ mov rdi,[rax+vcs_ownership_root.records]
+ mov rsi,[rax+vcs_ownership_root.record_count]
+ mov rdx,r14
+ call ownership_edge_find_publication
+ test rax,rax
+ jz .staged_commit_corrupt
+ mov ecx,[r14+vcs_ownership_edge.child_type]
+ cmp ecx,[rax+vcs_ownership_edge.child_type]
+ jne .staged_commit_corrupt
+ xor r13d,r13d
+.staged_commit_batch_loop:
+ cmp r13,[rbx+vcs_publication.edge_count]
+ jae .staged_commit_corrupt
+ mov rax,r13
+ imul rax,vcs_ownership_edge_size
+ add rax,[rbx+vcs_publication.edges]
+ mov r15,rax
+ mov rdi,rax
+ mov rsi,r14
+ call ownership_edge_compare_publication
+ test eax,eax
+ jnz .staged_commit_batch_next
+ mov eax,[r15+vcs_ownership_edge.child_type]
+ cmp eax,[r14+vcs_ownership_edge.child_type]
+ je .staged_commit_edge_found
+.staged_commit_batch_next:
+ inc r13
+ jmp .staged_commit_batch_loop
+.staged_commit_edge_found:
+ inc r12
+ jmp .staged_commit_edge_loop
+.staged_commit_ok:
+ xor eax,eax
+ jmp .staged_commit_done
+.staged_commit_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.staged_commit_done:
+ add rsp,296
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
  ret
 
 ; RDI=vcs_publication. Direct refs must resolve to commits in the authenticated
