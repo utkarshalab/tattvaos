@@ -65,6 +65,21 @@ struc WebPInfo
     .xmp_len:        resq 1
 endstruc
 
+; One JPEG component's samples for the whole image (jpeg_upsample_row):
+; int16 0 to 255, stride samples a row, width and height the real ones
+; (the image's, scaled by h / max_h and v / max_v, rounded up), and the
+; component's and the frame's largest sampling factors
+struc JpegPlane
+    .data:           resq 1
+    .stride:         resd 1
+    .width:          resd 1
+    .height:         resd 1
+    .h:              resb 1
+    .v:              resb 1
+    .max_h:          resb 1
+    .max_v:          resb 1
+endstruc
+
 ; image_meta (img/meta): orientation 1 to 8 (EXIF's), the ICC profile, the
 ; Exif block (its TIFF header on) and the XMP packet, each a pointer into the
 ; file or the arena and a length, 0 when absent
