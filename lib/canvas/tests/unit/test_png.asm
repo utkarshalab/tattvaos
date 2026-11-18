@@ -12,6 +12,8 @@ extern png_decode
 extern png_encode
 extern qoi_encode
 extern qoi_decode
+extern jpeg_encode
+extern jpeg_decode
 extern pixbuf_create
 extern crc32_ieee
 extern pixbuf_premultiply
@@ -40,6 +42,14 @@ test_png_main:
     call test_qoi_encode
     add ebx,eax
     call test_qoi_compact
+    add ebx,eax
+    call test_jpeg_tables
+    add ebx,eax
+    call test_jpeg_round_trip
+    add ebx,eax
+    call test_jpeg_chroma
+    add ebx,eax
+    call test_jpeg_zero_runs
     add ebx,eax
     mov eax,ebx
     EPILOGUE_RESTORE rbx
@@ -329,6 +339,352 @@ same:
     mov edx, 0xFF000000
     ret
 
+; MED-11 JPEG: the quantization tables as the reference encoder scales
+; Annex K's (quality 50 the tables themselves; 75 halved, rounded; 100 all
+; 1; 10 x 5), the file from SOI to EOI
+%macro JPEG_AT 1                        ; quality -> rax = the file, rdx
+    lea rdi, [rel enc_arena]
+    lea rsi, [rel enc_storage]
+    mov edx, ENC_STORAGE
+    call arena_init
+    lea rdi, [rel enc_arena]
+    mov esi, 16
+    mov edx, 16
+    mov ecx, DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax, rax
+    jle .fail
+    lea rdi, [rel enc_arena]
+    mov rsi, rax
+    mov edx, %1
+    call jpeg_encode
+    test rax, rax
+    jle .fail
+%endmacro
+%define JQ  25                          ; the luma table, after SOI, APP0, DQT
+test_jpeg_tables:
+    sub rsp, 8
+    JPEG_AT 50
+    cmp word [rax], 0xD8FF
+    jne .fail
+    cmp word [rax + rdx - 2], 0xD9FF
+    jne .fail
+    cmp dword [rax + JQ - 5], 0x8400DBFF
+    jne .fail
+    cmp byte [rax + JQ], 16             ; Annex K's first luma entries
+    jne .fail
+    cmp byte [rax + JQ + 1], 11
+    jne .fail
+    cmp byte [rax + JQ + 63], 99
+    jne .fail
+    cmp byte [rax + JQ + 64], 1         ; the chroma table's id, then 17
+    jne .fail
+    cmp byte [rax + JQ + 65], 17
+    jne .fail
+    JPEG_AT 75
+    cmp byte [rax + JQ + 1], 6          ; (11 x 50 + 50) / 100
+    jne .fail
+    JPEG_AT 100
+    xor ecx, ecx
+.ones:
+    cmp byte [rax + JQ + rcx], 1
+    jne .fail
+    inc ecx
+    cmp ecx, 64
+    jb .ones
+    JPEG_AT 10
+    cmp byte [rax + JQ], 80             ; (16 x 500 + 50) / 100
+    jne .fail
+    cmp byte [rax + JQ + 65], 85        ; (17 x 500 + 50) / 100
+    jne .fail
+    xor eax, eax
+    add rsp, 8
+    ret
+.fail:
+    mov eax, 1
+    add rsp, 8
+    ret
+
+; a 61x45 image of smooth gradients with a sharp edge, at quality 90,
+; through Canvas's decoder: the same size and within 30 dB (the squared
+; differences of all R, G and B at most 65.025 each); the white right of the
+; edge, out to the last column (its blocks padded with it), within 4
+%define JW  61
+%define JH  45
+test_jpeg_round_trip:
+    push rbx
+    lea rdi, [rel enc_arena]
+    lea rsi, [rel enc_storage]
+    mov edx, ENC_STORAGE
+    call arena_init
+    lea rdi, [rel enc_arena]
+    mov esi, JW
+    mov edx, JH
+    mov ecx, DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax, rax
+    jle .fail
+    mov rbx, rax
+    xor r8d, r8d                        ; y
+.fill_row:
+    mov rdi, r8
+    imul rdi, [rbx + PB_STRIDE]
+    add rdi, [rbx + PB_DATA]
+    xor ecx, ecx
+.fill:
+    call jpeg_pixel
+    mov [rdi + rcx * 4], edx
+    inc ecx
+    cmp ecx, JW
+    jb .fill
+    inc r8d
+    cmp r8d, JH
+    jb .fill_row
+    lea rdi, [rel enc_arena]
+    mov rsi, rbx
+    mov edx, 90
+    call jpeg_encode
+    test rax, rax
+    jle .fail
+    lea rdi, [rel enc_arena]
+    mov rsi, rax
+    call jpeg_decode
+    test rax, rax
+    jle .fail
+    mov [rel jr_image], rax
+    cmp qword [rax + PB_WIDTH], JW
+    jne .fail
+    cmp qword [rax + PB_HEIGHT], JH
+    jne .fail
+    xor r9d, r9d                        ; the squared differences
+    xor r8d, r8d
+.row:
+    mov rsi, r8
+    imul rsi, [rax + PB_STRIDE]
+    add rsi, [rax + PB_DATA]
+    xor ecx, ecx
+.pixel:
+    call jpeg_pixel
+    mov r10d, [rsi + rcx * 4]
+    mov r11d, 3
+.channel:
+    movzx edi, dl
+    movzx eax, r10b
+    sub edi, eax
+    imul edi, edi
+    add r9, rdi
+    shr edx, 8
+    shr r10d, 8
+    dec r11d
+    jnz .channel
+    mov rax, [rel jr_image]
+    inc ecx
+    cmp ecx, JW
+    jb .pixel
+    inc r8d
+    cmp r8d, JH
+    jb .row
+    imul r9, r9, 1000                   ; mean at most 65.025
+    cmp r9, 65025 * JW * JH * 3
+    ja .fail
+    xor r8d, r8d                        ; the white, by rows
+.white_row:
+    mov rsi, r8
+    imul rsi, [rax + PB_STRIDE]
+    add rsi, [rax + PB_DATA]
+    mov ecx, 48
+.white:
+    cmp byte [rsi + rcx * 4], 251
+    jb .fail
+    cmp byte [rsi + rcx * 4 + 1], 251
+    jb .fail
+    cmp byte [rsi + rcx * 4 + 2], 251
+    jb .fail
+    inc ecx
+    cmp ecx, JW
+    jb .white
+    inc r8d
+    cmp r8d, JH
+    jb .white_row
+    xor eax, eax
+    pop rbx
+    ret
+.fail:
+    mov eax, 1
+    pop rbx
+    ret
+
+; blue dots on black, every other pixel of every other row, at quality
+; 100: each 2x2's chroma is a quarter of a dot's, so the black beside one
+; decodes bluish (at 4:2:0 nothing else carries it)
+test_jpeg_chroma:
+    sub rsp, 8
+    lea rdi, [rel dots]
+    mov esi, 100
+    mov edx, 16
+    mov ecx, 16
+    call jpeg_through
+    test rax, rax
+    jz .fail
+    mov rsi, [rax + PB_DATA]
+    cmp byte [rsi], 30                  ; (0, 0)'s blue
+    jb .fail
+    xor eax, eax
+    add rsp, 8
+    ret
+.fail:
+    mov eax, 1
+    add rsp, 8
+    ret
+
+; one 8x8 cosine of the highest frequency both ways (grey), at quality 50:
+; its only coefficient the last, after sixty-two zeros (three runs of
+; sixteen), back within 36 dB
+test_jpeg_zero_runs:
+    sub rsp, 8
+    lea rdi, [rel wave]
+    mov esi, 50
+    mov edx, 16
+    mov ecx, 16
+    call jpeg_through
+    test rax, rax
+    jz .fail
+    mov r11, rax                        ; wave keeps it
+    xor r9d, r9d
+    xor r8d, r8d
+.row:
+    mov rsi, r8
+    imul rsi, [r11 + PB_STRIDE]
+    add rsi, [r11 + PB_DATA]
+    xor ecx, ecx
+.pixel:
+    call wave
+    movzx edi, dl
+    movzx r10d, byte [rsi + rcx * 4 + 1]
+    sub edi, r10d
+    imul edi, edi
+    add r9, rdi
+    inc ecx
+    cmp ecx, 16
+    jb .pixel
+    inc r8d
+    cmp r8d, 16
+    jb .row
+    cmp r9, 16 * 256                    ; a mean of at most 16
+    ja .fail
+    xor eax, eax
+    add rsp, 8
+    ret
+.fail:
+    mov eax, 1
+    add rsp, 8
+    ret
+
+; rdi = a pixel maker (ecx = x, r8d = y -> edx; rcx, rsi, rdi, r8 kept),
+; esi = quality, edx = width, ecx = height -> rax = its image encoded and
+; decoded by Canvas, 0 failed
+jpeg_through:
+    push rbx
+    push r12
+    push r13
+    push r14
+    push r15
+    mov rbx, rdi
+    mov r12d, esi
+    mov r13d, edx
+    mov r14d, ecx
+    lea rdi, [rel enc_arena]
+    lea rsi, [rel enc_storage]
+    mov edx, ENC_STORAGE
+    call arena_init
+    lea rdi, [rel enc_arena]
+    mov esi, r13d
+    mov edx, r14d
+    mov ecx, DRM_FORMAT_BGRA8888
+    call pixbuf_create
+    test rax, rax
+    jle .fail
+    mov r15, rax
+    xor r8d, r8d
+.fill_row:
+    mov rdi, r8
+    imul rdi, [r15 + PB_STRIDE]
+    add rdi, [r15 + PB_DATA]
+    xor ecx, ecx
+.fill:
+    call rbx
+    mov [rdi + rcx * 4], edx
+    inc ecx
+    cmp ecx, r13d
+    jb .fill
+    inc r8d
+    cmp r8d, r14d
+    jb .fill_row
+    lea rdi, [rel enc_arena]
+    mov rsi, r15
+    mov edx, r12d
+    call jpeg_encode
+    test rax, rax
+    jle .fail
+    lea rdi, [rel enc_arena]
+    mov rsi, rax
+    call jpeg_decode
+    test rax, rax
+    jg .out
+.fail:
+    xor eax, eax
+.out:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    ret
+
+; ecx = x, r8d = y -> edx: blue where both are odd, else black
+dots:
+    mov edx, 0xFF000000
+    mov eax, ecx
+    and eax, r8d
+    test eax, 1
+    jz .out
+    mov edx, 0xFF0000FF
+.out:
+    ret
+
+; ecx = x, r8d = y -> edx: grey wave_tile[y % 8][x % 8]
+wave:
+    mov eax, r8d
+    and eax, 7
+    shl eax, 3
+    mov edx, ecx
+    and edx, 7
+    add eax, edx
+    lea rdx, [rel wave_tile]
+    movzx edx, byte [rdx + rax]
+    imul edx, edx, 0x010101
+    or edx, 0xFF000000
+    ret
+
+; ecx = x, r8d = y -> edx: opaque, R 4x, G 5y, B 2 (x + y), all 255 past
+; x 40; r9, rsi kept
+jpeg_pixel:
+    cmp ecx, 40
+    jb .smooth
+    mov edx, 0xFFFFFFFF
+    ret
+.smooth:
+    lea edx, [rcx * 4]
+    shl edx, 16
+    lea eax, [r8 * 4 + r8]
+    shl eax, 8
+    or edx, eax
+    lea eax, [rcx + r8]
+    add eax, eax
+    or edx, eax
+    or edx, 0xFF000000
+    ret
+
 ; a fresh arena and the image in it -> rax = 0, negative error
 enc_fill:
     sub rsp, 8
@@ -453,11 +809,25 @@ enc_same:
 section .rodata
 s_iend:         db "IEND"
 
+section .rodata
+; 128 + 400 B[7][x] B[7][y], the DCT basis's highest row: a block whose only
+; coefficient is (7, 7)
+wave_tile:
+    db 132, 117, 144, 109, 147, 112, 139, 124
+    db 117, 159, 82, 182, 74, 174, 97, 139
+    db 144, 82, 197, 46, 210, 59, 174, 112
+    db 109, 182, 46, 224, 32, 210, 74, 147
+    db 147, 74, 210, 32, 224, 46, 182, 109
+    db 112, 174, 59, 210, 46, 197, 82, 144
+    db 139, 97, 174, 74, 182, 82, 159, 117
+    db 124, 139, 112, 147, 109, 144, 117, 132
+
 section .bss
 alignb 16
 enc_arena:      resb 32
 enc_image:      resq 1
 enc_width:      resq 1
+jr_image:       resq 1
 enc_decoded:    resq 1
 alignb 16
 enc_storage:    resb ENC_STORAGE
