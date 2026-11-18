@@ -96,7 +96,7 @@ hdr_decode:
     mov rcx,DRM_FORMAT_BGRA8888
     call pixbuf_create
     test rax,rax
-    jz .bad
+    jle .bad
     mov [rsp+16],rax
     xor r14d,r14d
 .row:
