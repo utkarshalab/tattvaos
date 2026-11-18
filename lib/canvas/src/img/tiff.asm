@@ -526,15 +526,15 @@ tiff_decode:
     je .photo_ok
     cmp dword [rsp+L_PHOTO],3
     jne .bad
-    mov eax,1
-    mov ecx,[rsp+L_BITS]
-    shl eax,cl
-    imul eax,3
-    cmp eax,[rsp+L_CMAPCOUNT]
+    mov r8d,1                          ; the colour map: 3 x 2^bits entries
+    mov ecx,[rsp+L_BITS]               ; in the file (eax, edx kept: the
+    shl r8d,cl                         ; width and samples, for the rows)
+    imul r8d,r8d,3
+    cmp r8d,[rsp+L_CMAPCOUNT]
     jne .bad
-    mov edx,[rsp+L_CMAP]
-    lea rax,[rdx+rax*2]
-    cmp rax,r13
+    mov r9d,[rsp+L_CMAP]
+    lea r8,[r9+r8*2]
+    cmp r8,r13
     ja .bad
     jmp .photo_ok
 .rgb_photo:
@@ -1087,6 +1087,10 @@ tiff_decode:
     je .planar_pixel
     cmp dword [rsp+8+L_BITS],8
     jb .packed_pixel
+    ja .not_palette8
+    cmp dword [rsp+8+L_PHOTO],3        ; 8-bit palette: the packed path's
+    je .packed_pixel                   ; sample and colour map lookup
+.not_palette8:
     cmp dword [rsp+8+L_BITS],16
     je .pixel16
     cmp dword [rsp+8+L_SAMPLES],1
