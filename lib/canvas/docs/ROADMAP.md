@@ -589,7 +589,7 @@ The complete list of 104 2D components, with state and dependencies, is in [`lib
 | MED-08 | Animated playback scheduler tied to the frame clock (GIF, WebP, APNG) | P3 | ◐ `gif_animation`, `webp_animation` |
 | MED-09 | Animated frame cache with memory caps | P3 | |
 | MED-10 | APNG decoding | P3 | |
-| MED-11 | Image encoders: PNG, QOI, JPEG (screenshots, export) | P2 | ◐ `img/encode`: `png_encode` (8-bit RGBA, stored deflate in zlib, every CRC) and `qoi_encode` (all of QOI 1.0) from a premultiplied PixBuf, alpha straightened; `test_png` (each round-trips a 200x100 image through its decoder; PNG's CRC convention). no JPEG yet |
+| MED-11 | Image encoders: PNG, QOI, JPEG (screenshots, export) | P2 | ✓ `img/encode`: `png_encode` (8-bit RGBA, stored deflate in zlib, every CRC) and `qoi_encode` (all of QOI 1.0), alpha straightened; `img/jpeg_encode`: baseline JFIF 4:2:0, a forward DCT in doubles, Annex K's tables scaled by quality as the reference encoder scales them, sized exactly (counted, then written). `encode_check.py` in `make check` (host_encode): PNG and QOI read back by the reference decoder exactly; JPEG at qualities 30 to 100 within 1 dB of the reference encoder and at most 1.25 times its size, read by Canvas's decoder too; `test_png` (tables, round trips, mutation-checked) |
 | MED-12 | Thumbnail service with cache | P3 | |
 | MED-13 | Tiled giant-image streaming into surfaces | P4 | |
 | MED-14 | AVIF, HEIF, JPEG XL decoding | P5 | Deferred by decision 0011 |
