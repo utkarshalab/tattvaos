@@ -212,6 +212,10 @@ test_window_suite:
     CASE tw_magnifier, CAP_SHELL
     CASE tw_overlay_refused, CAP_SHELL | CAP_LAYER
     CASE tw_overlay, CAP_SHELL | CAP_LAYER | CAP_OVERLAY
+    CASE tw_hostile_buffers, CAP_SHELL
+    CASE tw_hostile_surfaces, CAP_SHELL
+    CASE tw_hostile_flood, CAP_SHELL
+    CASE tw_hostile_dead_buffer, CAP_SHELL
     mov eax, ebx
     pop rbx
     ret
@@ -5014,6 +5018,205 @@ tw_osd:
     SERVER_IS osd_kind, 0
     PASS
 
+; QA-06: hostile clients. B, a standard client, takes what it may and no
+; more, and what it does to itself does not reach A, a trusted one.
+
+; B accepted, standard, asking for %1, talked through; its first events read
+%macro HOSTILE_B 1
+    lea rdi, [rel server]
+    lea rsi, [rel pair_b]
+    mov edx, %1
+    call client_accept
+    test rax, rax
+    js .fail
+    AS pair_b
+    call drain
+%endmacro
+; a %1 x %2 buffer asked for -> rax = its handle, negative: none made
+%macro MAKE_BUFFER 2
+    mov dword [rel req], %1
+    mov dword [rel req + 4], %2
+    mov dword [rel req + 8], DRM_FORMAT_BGRA8888
+    mov dword [rel req + 12], 0
+    mov qword [rel req + 16], 0
+    SEND CWP_OBJ_BUFFER, OP_CREATE, 24
+    call poll
+    call next_reply
+    test rax, rax
+    js %%none
+    mov eax, [rel ans]
+%%none:
+%endmacro
+
+; B makes 8x8 buffers until refused: 32, its quota; one destroyed, one more
+; and no other; one too big for its pixels (512 MiB) refused before any of
+; its memory is taken, with room for one; A makes 40
+tw_hostile_buffers:
+    push rbx
+    push r12
+    sub rsp, 8
+    HOSTILE_B CAP_BUFFER | CAP_SURFACE
+    xor ebx, ebx                        ; made
+    mov r12d, 40
+.make:
+    MAKE_BUFFER 8, 8
+    test rax, rax
+    js .refused
+    inc ebx
+    mov [rel hostile_last], eax
+.refused:
+    dec r12d
+    jnz .make
+    cmp ebx, 32
+    jne .fail
+    mov eax, [rel hostile_last]         ; one gone, one more
+    mov [rel req], eax
+    SEND CWP_OBJ_BUFFER, OP_DESTROY, 4
+    call poll
+    MAKE_BUFFER 8, 8
+    test rax, rax
+    js .fail
+    mov [rel hostile_last], eax
+    MAKE_BUFFER 8, 8
+    test rax, rax
+    jns .fail
+    mov eax, [rel hostile_last]         ; room for one again: too big
+    mov [rel req], eax
+    SEND CWP_OBJ_BUFFER, OP_DESTROY, 4
+    call poll
+    MAKE_BUFFER 16384, 8193
+    test rax, rax
+    jns .fail
+    MAKE_BUFFER 8, 8                    ; refused for its size, not count
+    test rax, rax
+    js .fail
+    AS pair
+    mov r12d, 40
+.a_makes:
+    MAKE_BUFFER 8, 8
+    test rax, rax
+    js .fail
+    dec r12d
+    jnz .a_makes
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; B makes surfaces until refused: 64, its quota; A makes 70
+tw_hostile_surfaces:
+    push rbx
+    push r12
+    sub rsp, 8
+    HOSTILE_B CAP_BUFFER | CAP_SURFACE
+    xor ebx, ebx
+    mov r12d, 70
+.make:
+    SEND CWP_OBJ_SURFACE, OP_CREATE, 0
+    call poll
+    call next_reply
+    test rax, rax
+    js .refused
+    inc ebx
+.refused:
+    dec r12d
+    jnz .make
+    cmp ebx, 64
+    jne .fail
+    AS pair
+    mov r12d, 70
+.a_makes:
+    SEND CWP_OBJ_SURFACE, OP_CREATE, 0
+    call poll
+    call next_reply
+    test rax, rax
+    js .fail
+    dec r12d
+    jnz .a_makes
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 8
+    pop r12
+    pop rbx
+    ret
+
+; B sends sync after sync and never reads a reply (its ring fills, the
+; rest dropped); A's sync is still answered, with the serial it expects
+tw_hostile_flood:
+    push rbx
+    sub rsp, 16
+    HOSTILE_B CAP_BUFFER | CAP_SURFACE
+    mov ebx, 4000
+.flood:
+    SEND CWP_OBJ_DISPLAY, DISPLAY_SYNC, 0
+    test ebx, 63
+    jnz .no_turn
+    call poll
+.no_turn:
+    dec ebx
+    jnz .flood
+    call poll
+    AS pair
+    call drain
+    SEND CWP_OBJ_DISPLAY, DISPLAY_SYNC, 0
+    call poll
+    call next_reply
+    test rax, rax
+    js .fail
+    cmp dword [rel hdr + MsgHdr.obj], CWP_OBJ_DISPLAY
+    jne .fail
+    xor eax, eax
+    jmp .out
+.fail:
+    mov eax, 1
+.out:
+    add rsp, 16
+    pop rbx
+    ret
+
+; B's window shown, its buffer destroyed under it and the surface committed
+; again; frames go on being drawn (nothing of B's freed pixels read), A's
+; window beside it still shown
+tw_hostile_dead_buffer:
+    sub rsp, 8
+    POINTER 40, 10
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_a], eax
+    HOSTILE_B CAP_BUFFER | CAP_SURFACE | CAP_SHELL
+    POINTER 5, 30
+    mov edi, 16
+    mov esi, 12
+    call new_window
+    mov [rel surface_b], eax
+    mov eax, [rel buffer]
+    mov [rel req], eax
+    SEND CWP_OBJ_BUFFER, OP_DESTROY, 4
+    call poll
+    mov eax, [rel surface_b]
+    mov [rel req], eax
+    mov dword [rel req + 4], 0
+    SEND CWP_OBJ_SURFACE, OP_COMMIT, 8
+    call poll
+    call poll
+    AS pair
+    mov edi, [rel surface_a]
+    call surface_of
+    test rax, rax
+    jz .fail
+    cmp qword [rax + Surface.window], 0
+    je .fail
+    PASS
+
 ; REL-16: a window at the far corner of a second output, the output
 ; unplugged: it is on the first, its corner kept 32 pixels inside (x 32,
 ; y 16 on 64x48); a maximized one there fills the first
@@ -5439,6 +5642,7 @@ scale_job:      resb UgfxScale_SIZE
 arena:          resb Arena_size
 pair:           resb ChannelPair_size
 pair_b:         resb ChannelPair_size   ; a second client, when a case wants one
+hostile_last:   resd 1
 cur_pair:       resq 1                  ; the one the helpers talk through
 client_a:       resq 1                  ; pair's client id
 clip_serial:    resd 1
