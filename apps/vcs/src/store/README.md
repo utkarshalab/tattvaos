@@ -67,7 +67,8 @@ reader pin; transaction and migration pins remain ordinary durable owner edges.
 `ref_catalog.asm` validates the scalable variable-length branch, tag, remote and
 workspace records, including portable component names, strict kind/name order,
 target identities and zero alignment padding. Kind-1 mutable-root hashing binds
-the complete canonical byte stream to its repository generation.
+the complete canonical byte stream to its repository generation. Ref-key hashes
+identify complete kind/name pairs for the sole symbolic form, workspace `HEAD`.
 
 `publication.asm` preflights complete object IDs and ownership records before
 authenticating the complete object-index generation. Every staged object's ID,
@@ -90,9 +91,11 @@ are canonical and unique, and an allocation-free sorted merge proves that every
 new object has a correctly typed pin owned by the current transaction. The
 complete kind-2 ownership root is verified against the candidate generation and
 superblock, and every staged edge must belong to it. The complete kind-1 ref root
-is also verified against the same generation and superblock. The coordinator
-then passes overflow-safe object, extent and ownership counts to backend
-reservation, then drives object staging, ownership staging, the repository root
+is also verified against the same generation and superblock. Direct refs must
+resolve to indexed commits, while symbolic workspace `HEAD` must resolve to a
+branch key in that same catalog. The coordinator then passes overflow-safe
+object, extent and ownership counts to backend reservation, then drives object
+staging, ownership staging, the repository root
 plus all three verified catalog-root hashes, flush and atomic publish. Failures
 before the publish barrier abort; an abort failure or ambiguous publish poisons
 the backend until remount.
