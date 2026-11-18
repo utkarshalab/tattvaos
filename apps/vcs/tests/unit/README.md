@@ -24,6 +24,8 @@ page/target edges across multiple tree pages, per-owner duplicate collapse and
 atomic capacity/corruption failure. `test_ref_catalog.py` validates scalable
 variable ref records, canonical names and ordering, alignment padding, kind-1
 root and ref-key hashes, symbolic-form restrictions and corruption rejection.
+`test_commit_object.py` covers canonical root, ordinary and merge commits,
+complete ID binding, typed tree/parent ownership edges and atomic bounds.
 The standard `make test` target runs these with
 `test_publication.py`, which injects failure at every transaction phase and
 checks authenticated predecessor transitions and index membership, replay and
