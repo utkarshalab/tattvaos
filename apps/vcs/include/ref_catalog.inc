@@ -20,6 +20,7 @@ endstruc
 
 %ifndef VCS_REF_CATALOG_IMPLEMENTATION
 extern vcs_ref_catalog_validate
+extern vcs_ref_key_hash
 extern vcs_ref_root_hash
 extern vcs_ref_root_verify
 %endif
