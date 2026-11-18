@@ -1,12 +1,18 @@
 ; ============================================================================
 ; Quota — Per-Client Resource Quotas (memory, surfaces, buffers)
 ; ============================================================================
+; quota_take_* / quota_give_*: what each client holds, against its trust
+; level's limits (QA-06): trusted none; standard and others 512 MiB of
+; buffer pixels, 64 surfaces, 32 buffers; sandboxed 128 MiB, 16, 8, as its
+; trust profile states. Without them one client could take the memory, or
+; fill the server-wide handle tables, every other client needs.
 
 %include "inc/abi.inc"
 %include "inc/macros.inc"
 %include "inc/errors.inc"
 %include "inc/ut.inc"
 %include "inc/canvas_client.inc"
+%include "inc/caps.inc"
 
 extern arena_alloc
 
@@ -242,6 +248,108 @@ quota_free_buf:
     xor rax, rax
     leave
     ret
+
+; client_limits' columns
+%define LIMIT_PIXELS    0
+%define LIMIT_SURFACES  8
+%define LIMIT_BUFFERS   12
+
+; ---------------------------------------------------------------------------
+; quota_take_buffer / quota_give_buffer
+;   A buffer of a client's: taken if within its count and pixel limits,
+;   given back when it goes
+;   IN:  rdi = client*, rsi = its pixels' bytes
+;   OUT: rax = 0, -EQUOTA_BUF too many, -EQUOTA_MEM too many bytes (take)
+; ---------------------------------------------------------------------------
+global quota_take_buffer
+quota_take_buffer:
+    call limits_of                      ; -> rdx = the client's limits
+    mov eax, [rdi + Client.used_buffers]
+    cmp dword [rdx + LIMIT_BUFFERS], 0
+    je .count_ok
+    cmp eax, [rdx + LIMIT_BUFFERS]
+    jae .count
+.count_ok:
+    mov rax, [rdi + Client.used_pixels]
+    add rax, rsi
+    jc .bytes
+    cmp qword [rdx + LIMIT_PIXELS], 0
+    je .bytes_ok
+    cmp rax, [rdx + LIMIT_PIXELS]
+    ja .bytes
+.bytes_ok:
+    mov [rdi + Client.used_pixels], rax
+    inc dword [rdi + Client.used_buffers]
+    xor eax, eax
+    ret
+.count:
+    mov rax, -(EQUOTA_BUF)
+    ret
+.bytes:
+    mov rax, -(EQUOTA_MEM)
+    ret
+
+global quota_give_buffer
+quota_give_buffer:
+    sub [rdi + Client.used_pixels], rsi
+    dec dword [rdi + Client.used_buffers]
+    xor eax, eax
+    ret
+
+; ---------------------------------------------------------------------------
+; quota_take_surface / quota_give_surface
+;   IN:  rdi = client*
+;   OUT: rax = 0, -EQUOTA_SURF too many (take)
+; ---------------------------------------------------------------------------
+global quota_take_surface
+quota_take_surface:
+    call limits_of
+    mov eax, [rdi + Client.used_surfaces]
+    cmp dword [rdx + LIMIT_SURFACES], 0
+    je .ok
+    cmp eax, [rdx + LIMIT_SURFACES]
+    jae .over
+.ok:
+    inc dword [rdi + Client.used_surfaces]
+    xor eax, eax
+    ret
+.over:
+    mov rax, -(EQUOTA_SURF)
+    ret
+
+global quota_give_surface
+quota_give_surface:
+    dec dword [rdi + Client.used_surfaces]
+    xor eax, eax
+    ret
+
+; rdi = client* -> rdx = its trust level's row of client_limits (an unknown
+; level gets the standard one); rdi, rsi kept
+limits_of:
+    mov rax, [rdi + Client.trust_profile]
+    cmp rax, TRUST_KIOSK
+    jbe .known
+    mov eax, TRUST_STANDARD
+.known:
+    lea rdx, [rel client_limits]
+    shl rax, 4
+    add rdx, rax
+    ret
+
+section .rodata
+; by trust level: pixels' bytes, surfaces, buffers (0: no limit)
+align 8
+client_limits:
+    dq 0
+    dd 0, 0                             ; trusted
+    dq 512 * 1024 * 1024
+    dd 64, 32                           ; standard
+    dq 128 * 1024 * 1024
+    dd 16, 8                            ; sandboxed
+    dq 512 * 1024 * 1024
+    dd 64, 32                           ; remote
+    dq 512 * 1024 * 1024
+    dd 64, 32                           ; kiosk
 
 section .data
 global quota_version
