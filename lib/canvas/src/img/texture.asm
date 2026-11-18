@@ -90,11 +90,63 @@ dds_decode:
     je .dds_bc
     mov r9d,3
     cmp eax,0x35545844            ; DXT5
+    je .dds_bc
+    mov r9d,4
+    cmp eax,0x31495441            ; ATI1
+    je .dds_bc
+    cmp eax,0x55344342            ; BC4U
+    je .dds_bc
+    mov r9d,5
+    cmp eax,0x32495441            ; ATI2
+    je .dds_bc
+    cmp eax,0x55354342            ; BC5U
+    je .dds_bc
+    cmp eax,0x30315844            ; DX10: the format a DXGI one, after
     jne .bad
+    cmp r13,148
+    jb .bad
+    mov eax,[r12+128]
+    mov r9d,1                     ; each family's typeless, unorm, sRGB
+    cmp eax,70
+    je .dds_dx10
+    cmp eax,71                    ; BC1
+    je .dds_dx10
+    cmp eax,72
+    je .dds_dx10
+    mov r9d,2
+    cmp eax,73
+    je .dds_dx10
+    cmp eax,74                    ; BC2
+    je .dds_dx10
+    cmp eax,75
+    je .dds_dx10
+    mov r9d,3
+    cmp eax,76
+    je .dds_dx10
+    cmp eax,77                    ; BC3
+    je .dds_dx10
+    cmp eax,78
+    je .dds_dx10
+    mov r9d,4
+    cmp eax,79
+    je .dds_dx10
+    cmp eax,80                    ; BC4 unorm
+    je .dds_dx10
+    mov r9d,5
+    cmp eax,82
+    je .dds_dx10
+    cmp eax,83                    ; BC5 unorm
+    jne .bad
+.dds_dx10:
+    mov rdi,rbx
+    lea rsi,[r12+148]
+    lea rdx,[r13-148]
+    jmp .dds_bc_size
 .dds_bc:
     mov rdi,rbx
     lea rsi,[r12+128]
     lea rdx,[r13-128]
+.dds_bc_size:
     mov ecx,[r12+16]
     mov r8d,[r12+12]
     call bc_decode
