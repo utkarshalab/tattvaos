@@ -13,7 +13,7 @@ default rel
 extern vcs_object_id,vcs_object_index_root_verify,vcs_object_index_find
 extern vcs_ownership_edge_validate,vcs_ownership_catalog_validate
 extern vcs_ownership_root_verify
-extern vcs_ref_root_verify
+extern vcs_ref_root_verify,vcs_ref_key_hash
 extern vcs_superblock_verify,vcs_superblock_select_latest
 extern sha256_hash
 
@@ -179,6 +179,10 @@ vcs_publication_commit:
  call ids_equal_publication
  test eax,eax
  jz .corrupt
+ mov rdi,rbx
+ call validate_ref_targets_publication
+ test eax,eax
+ jnz .done
  cmp qword [rbp+vcs_publish_backend.begin],0
  je .usage
  cmp qword [rbp+vcs_publish_backend.put_object],0
@@ -867,6 +871,132 @@ ownership_edge_compare_publication:
 .ownership_compare_greater:
  mov eax,1
 .ownership_compare_done:
+ pop r12
+ pop rbx
+ ret
+
+; RDI=vcs_publication. Direct refs must resolve to commits in the authenticated
+; object index. The sole symbolic workspace HEAD must name a branch key.
+validate_ref_targets_publication:
+ push rbp
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ sub rsp,72
+ mov rbx,rdi
+ mov rax,[rbx+vcs_publication.ref_root]
+ mov r12,[rax+vcs_ref_root.records]
+ mov r13,[rax+vcs_ref_root.record_bytes]
+ add r13,r12
+ jc .ref_targets_corrupt
+.ref_target_loop:
+ cmp r12,r13
+ jae .ref_targets_ok
+ test word [r12+2],VCS_REF_SYMBOLIC
+ jnz .ref_symbolic
+ mov rax,[rbx+vcs_publication.index_root]
+ mov rdi,[rax+vcs_object_index_root.records]
+ mov rsi,[rax+vcs_object_index_root.record_count]
+ lea rdx,[r12+16]
+ call object_index_find_trusted_publication
+ test rax,rax
+ jz .ref_targets_corrupt
+ cmp dword [rax+vcs_object_index_record.object_type],VCS_OBJ_COMMIT
+ jne .ref_targets_corrupt
+ jmp .ref_target_next
+.ref_symbolic:
+ mov rax,[rbx+vcs_publication.ref_root]
+ mov r15,[rax+vcs_ref_root.records]
+.ref_symbolic_scan:
+ cmp r15,r13
+ jae .ref_targets_corrupt
+ cmp byte [r15],VCS_REF_BRANCH
+ jne .ref_symbolic_next
+ mov rdi,r15
+ lea rsi,[rsp+32]
+ call vcs_ref_key_hash
+ test eax,eax
+ jnz .ref_targets_corrupt
+ lea rdi,[rsp+32]
+ lea rsi,[r12+16]
+ call ids_equal_publication
+ test eax,eax
+ jnz .ref_target_next
+.ref_symbolic_next:
+ movzx eax,byte [r15+1]
+ add rax,7
+ and rax,-8
+ add rax,VCS_REF_HEADER
+ add r15,rax
+ jc .ref_targets_corrupt
+ jmp .ref_symbolic_scan
+.ref_target_next:
+ movzx eax,byte [r12+1]
+ add rax,7
+ and rax,-8
+ add rax,VCS_REF_HEADER
+ add r12,rax
+ jc .ref_targets_corrupt
+ jmp .ref_target_loop
+.ref_targets_ok:
+ xor eax,eax
+ jmp .ref_targets_done
+.ref_targets_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+.ref_targets_done:
+ add rsp,72
+ pop r15
+ pop r14
+ pop r13
+ pop r12
+ pop rbx
+ pop rbp
+ ret
+
+; RDI=already authenticated index records, RSI=count, RDX=ID.
+; RAX=matching record or zero. No repeated full-catalog validation.
+object_index_find_trusted_publication:
+ push rbx
+ push r12
+ push r13
+ push r14
+ push r15
+ mov rbx,rdi
+ mov r12,rsi
+ mov r13,rdx
+ xor r14d,r14d
+.trusted_index_loop:
+ cmp r14,r12
+ jae .trusted_index_missing
+ mov r15,r14
+ add r15,r12
+ shr r15,1
+ mov rax,r15
+ shl rax,6
+ lea rdi,[rbx+rax]
+ mov rsi,r13
+ call ids_compare_publication
+ test eax,eax
+ jz .trusted_index_hit
+ js .trusted_index_raise
+ mov r12,r15
+ jmp .trusted_index_loop
+.trusted_index_raise:
+ lea r14,[r15+1]
+ jmp .trusted_index_loop
+.trusted_index_hit:
+ mov rax,r15
+ shl rax,6
+ add rax,rbx
+ jmp .trusted_index_done
+.trusted_index_missing:
+ xor eax,eax
+.trusted_index_done:
+ pop r15
+ pop r14
+ pop r13
  pop r12
  pop rbx
  ret
