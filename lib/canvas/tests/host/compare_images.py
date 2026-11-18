@@ -37,9 +37,7 @@ LOSSY_PSNR_FLOOR = 45.0
 # each one: that is reported on every run and does not fail it. One decoded
 # wrongly, or one that starts passing (so that its entry is removed), fails.
 # Tracked in docs/ROADMAP.md (MED-20).
-KNOWN_GAPS = {
-    "progressive.jpg": "progressive JPEG is not implemented",
-}
+KNOWN_GAPS = {}
 
 
 def synth(w, h, seed, alpha=False):
@@ -210,6 +208,13 @@ def build_corpus(d):
     add("progressive.jpg", "lossy",
         lambda p: im.save(p, "JPEG", quality=90, progressive=True))
     add("gray.jpg", "lossy", lambda p: im.convert("L").save(p, "JPEG", quality=90))
+    # MED-20: the default scripts refine DC and AC by successive approximation
+    add("progressive_gray.jpg", "lossy",
+        lambda p: im.convert("L").save(p, "JPEG", quality=90, progressive=True))
+    add("progressive444.jpg", "lossy",
+        lambda p: im.save(p, "JPEG", quality=90, progressive=True, subsampling=0))
+    add("progressive_restart.jpg", "lossy",
+        lambda p: im.save(p, "JPEG", quality=90, progressive=True, restart_marker_blocks=1))
     add("subsample444.jpg", "lossy",
         lambda p: im.save(p, "JPEG", quality=90, subsampling=0))
     add("subsample422.jpg", "lossy",
@@ -217,6 +222,8 @@ def build_corpus(d):
     odd = synth(37, 23, 17)    # chroma interpolated up to odd edges
     add("odd420.jpg", "lossy", lambda p: odd.save(p, "JPEG", quality=90, subsampling=2))
     add("odd422.jpg", "lossy", lambda p: odd.save(p, "JPEG", quality=90, subsampling=1))
+    add("odd_progressive.jpg", "lossy",
+        lambda p: odd.save(p, "JPEG", quality=90, progressive=True))
     add("image.gif", "exact", lambda p: im.convert("P").save(p, "GIF"))
     noisy = synth(300, 200, 3).convert("P", palette=Image.ADAPTIVE, colors=256)
     add("noisy.gif", "exact", lambda p: noisy.save(p, "GIF"))   # table fills, clears
