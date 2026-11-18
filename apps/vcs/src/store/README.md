@@ -3,7 +3,7 @@
 Object store on UXFS: repository metadata, snapshots, refs and atomic ownership
 transfers. There is no tracing garbage collector.
 
-Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `tree_object.asm`, `ownership.asm`, `ref_catalog.asm`, `publication.asm`,
+Implemented in `repository.asm`, `object_store.asm`, `chunk_pipeline.asm`, `file_object.asm`, `tree_object.asm`, `commit_object.asm`, `ownership.asm`, `ref_catalog.asm`, `publication.asm`,
 `history.asm`, `stage.asm`, `refs.asm`, `worktree.asm`, and `identity.asm`: UXFS initialization, repository
 discovery, full-file snapshot manifests, unchanged blob reuse, status comparison,
 selective persistent staging, branches/tags, forced checkout, transactional
@@ -54,6 +54,11 @@ greedy pages and a tree root. It validates canonical UTF-8 component names,
 portable modes, complete target IDs, zero padding, reverse-hashed links and
 cross-page ordering before publishing a decoded view. This removes the object
 codec's 15-entry ceiling; command migration to these objects is a later step.
+
+`commit_object.asm` validates the canonical scalable commit header, message,
+root/ordinary/merge parent forms, generation floor, timezone and reserved bytes.
+It binds the payload to its complete type-4 object ID before atomically emitting
+the immutable commit-to-tree and commit-to-parent ownership edges.
 
 `ownership.asm` derives exact immutable dependency edges only after full file or
 tree verification. File roots own their page chains and chunks; tree roots own
