@@ -204,7 +204,11 @@ for slot, (object_id, envelope, length, object_type) in enumerate(
     index_records[slot].envelope = envelope
     index_records[slot].payload_length = length
     index_records[slot].object_type = object_type
-    index_records[slot].transaction = 11
+    index_records[slot].transaction = 10
+for value in objects:
+    record = next(record for record in index_records
+                  if bytes(record.object_id) == bytes(value.object_id))
+    record.transaction = 11
 index_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 5, 0, 9, ctypes.sizeof(index_records))
 index_hash = array(hashlib.sha256(index_frame + bytes(index_records)).digest())
 index_root = IndexRoot(index_records, len(catalog), 9, index_hash)
@@ -587,20 +591,21 @@ root_image[184:216] = bytes(index_hash)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
 root[:] = root_image
 
-# Even non-staged authenticated records cannot claim a transaction newer than
-# the candidate repository transaction.
-future_record = next(record for record in index_records
-                     if bytes(record.object_id) == alternate_commit_id)
-future_record.transaction = 12
-index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
-root_image[184:216] = bytes(index_hash)
-root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
-root[:] = root_image
-backend, state = backend_for()
-publication = request(backend)
-assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
-assert publication.result_phase == 0xBAD and state["events"] == []
-future_record.transaction = 11
+# A current-transaction index record must have a matching staged object, and no
+# authenticated record may claim a transaction newer than the candidate.
+unstaged_record = next(record for record in index_records
+                       if bytes(record.object_id) == alternate_commit_id)
+for invalid_transaction in (11, 12):
+    unstaged_record.transaction = invalid_transaction
+    index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
+    root_image[184:216] = bytes(index_hash)
+    root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
+    root[:] = root_image
+    backend, state = backend_for()
+    publication = request(backend)
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+    assert publication.result_phase == 0xBAD and state["events"] == []
+unstaged_record.transaction = 10
 index_hash[:] = hashlib.sha256(index_frame + bytes(index_records)).digest()
 root_image[184:216] = bytes(index_hash)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
