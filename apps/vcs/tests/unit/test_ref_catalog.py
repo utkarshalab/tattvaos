@@ -16,6 +16,8 @@ class RefRoot(ctypes.Structure):
 
 lib.vcs_ref_catalog_validate.argtypes = [P, ctypes.c_uint64]
 lib.vcs_ref_catalog_validate.restype = ctypes.c_uint64
+lib.vcs_ref_key_hash.argtypes = [P, P]
+lib.vcs_ref_key_hash.restype = ctypes.c_uint64
 lib.vcs_ref_root_hash.argtypes = [ctypes.POINTER(RefRoot)]
 lib.vcs_ref_root_hash.restype = ctypes.c_uint64
 lib.vcs_ref_root_verify.argtypes = [ctypes.POINTER(RefRoot)]
@@ -35,14 +37,21 @@ def record(kind, name, generation, target, flags=0):
 
 targets = [hashlib.sha256(b"ref-target-" + bytes([index])).digest()
            for index in range(5)]
-records = [record(1, "main", 7, targets[0], 1),
+main_record = record(1, "main", 7, targets[0], 1)
+main_key = hashlib.sha256(b"UVCSRFK1" + struct.pack("<HBB", 1, 1, 4)
+                          + b"main").digest()
+records = [main_record,
            record(1, "release/v3", 2, targets[1]),
            record(2, "v3.0", 1, targets[2]),
            record(3, "origin/main", 4, targets[3]),
-           record(4, "HEAD", 9, targets[4], 2)]
+           record(4, "HEAD", 9, main_key, 2)]
 catalog_bytes = b"".join(records)
 catalog = array(catalog_bytes)
 assert lib.vcs_ref_catalog_validate(catalog, len(catalog_bytes)) == OK
+key_output = (ctypes.c_ubyte * 32)()
+main_buffer = array(main_record)
+assert lib.vcs_ref_key_hash(main_buffer, key_output) == OK
+assert bytes(key_output) == main_key
 
 root_hash = (ctypes.c_ubyte * 32)()
 root = RefRoot(catalog, len(catalog_bytes), 31, root_hash)
@@ -69,6 +78,8 @@ assert lib.vcs_ref_catalog_validate(reversed_catalog,
 for bad_name in ("", ".hidden", "a//b", "a/.vcs", "a.vcs", "a/", "bad name"):
     malformed = array(record(1, bad_name, 1, targets[0]))
     assert lib.vcs_ref_catalog_validate(malformed, len(malformed)) == CORRUPT
+symbolic_tag = array(record(2, "alias", 1, main_key, 2))
+assert lib.vcs_ref_catalog_validate(symbolic_tag, len(symbolic_tag)) == CORRUPT
 for offset in (0, 2, 4, 8, 16):
     malformed_bytes = bytearray(records[0])
     if offset == 0:
@@ -88,4 +99,4 @@ padding_bad[-1] = 1
 padding_buffer = array(padding_bad)
 assert lib.vcs_ref_catalog_validate(padding_buffer, len(padding_bad)) == CORRUPT
 
-print("VCS ref catalog: PASS (variable records, names, ordering, root hashes, corruption)")
+print("VCS ref catalog: PASS (variable records, names, ordering, root/key hashes, corruption)")
