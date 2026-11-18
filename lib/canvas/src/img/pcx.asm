@@ -42,8 +42,8 @@ pcx_decode:
     mov [rsp+8],eax
     movzx eax,word [r12+66]
     mov [rsp+12],eax
-    mov rax,[rsp+12]
-    imul rax,[rsp+8]
+    mov eax,[rsp+12]             ; a row: bytes a line x planes (both dwords)
+    imul eax,[rsp+8]
     mov [rsp+16],rax
     mov rdi,rbx
     mov rsi,rax
@@ -90,8 +90,11 @@ pcx_decode:
     jbe .run_ok
     mov rdx,rcx
 .run_ok:
-    sub rcx,rdx
+    sub rcx,rdx                  ; what is left of the row after the run
+    push rcx
+    mov rcx,rdx                  ; the run
     rep stosb
+    pop rcx
     jmp .decode_row
 .convert:
     mov rax,[rbx+PixBuf.stride]
