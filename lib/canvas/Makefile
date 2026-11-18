@@ -166,7 +166,9 @@ IMG_SRCS := \
     $(SRCDIR)/img/gif_animation.asm \
     $(SRCDIR)/img/bmp.asm \
     $(SRCDIR)/img/qoi.asm \
-    $(SRCDIR)/img/encode.asm     $(SRCDIR)/img/meta.asm \
+    $(SRCDIR)/img/encode.asm \
+    $(SRCDIR)/img/jpeg_encode.asm \
+    $(SRCDIR)/img/meta.asm \
     $(SRCDIR)/img/tga.asm \
     $(SRCDIR)/img/pnm.asm \
     $(SRCDIR)/img/raw.asm \
@@ -338,7 +340,9 @@ DCN_SRCS := \
 OUTPUT_SRCS := \
     $(SRCDIR)/output/output.asm \
     $(SRCDIR)/output/displays.asm \
-    $(SRCDIR)/output/output_watch.asm     $(SRCDIR)/output/clamshell.asm     $(SRCDIR)/output/output_scale.asm \
+    $(SRCDIR)/output/output_watch.asm \
+    $(SRCDIR)/output/clamshell.asm \
+    $(SRCDIR)/output/output_scale.asm \
     $(SRCDIR)/output/modes.asm \
     $(SRCDIR)/output/scale_fractional.asm \
     $(SRCDIR)/output/rotation.asm \
@@ -349,7 +353,8 @@ OUTPUT_SRCS := \
 
 # Input Management (C12)
 INPUT_SRCS := \
-    $(SRCDIR)/input/input.asm     $(SRCDIR)/input/seat_watch.asm \
+    $(SRCDIR)/input/input.asm \
+    $(SRCDIR)/input/seat_watch.asm \
     $(SRCDIR)/input/pointer_settings.asm \
     $(SRCDIR)/input/source_iface.asm \
     $(SRCDIR)/input/source_virtual.asm \
@@ -786,6 +791,9 @@ $(HOSTDIR)/test_%: $(HOSTDIR)/runner_%.o $(OBJDIR)/tests/unit/test_%.o $(HOSTDIR
 $(HOSTDIR)/host_decode: $(HOSTDIR)/host_decode.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
 
+$(HOSTDIR)/host_encode: $(HOSTDIR)/host_encode.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
+	$(LD) $(HOST_LDFLAGS) -o $@ $^
+
 $(HOSTDIR)/host_ui: $(HOSTDIR)/host_ui.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
 
@@ -793,7 +801,7 @@ $(HOSTDIR)/ubf_run: $(HOSTDIR)/ubf_run.o $(HOSTDIR)/ut_host.o $(HOST_LIB_OBJS)
 	$(LD) $(HOST_LDFLAGS) -o $@ $^
 
 .PHONY: host host-check
-host: $(HOST_TESTS) $(HOSTDIR)/host_decode $(HOSTDIR)/host_ui
+host: $(HOST_TESTS) $(HOSTDIR)/host_decode $(HOSTDIR)/host_encode $(HOSTDIR)/host_ui
 
 host-check: host
 	@set -e; for t in $(HOST_TESTS); do $$t; done
@@ -802,6 +810,7 @@ host-check: host
 	python3 tests/host/svg_text_check.py $(HOSTDIR)/host_decode ../ugfx/$(BUILDDIR)/host_ctx ../ufont/fonts
 	python3 tests/host/ui_icons_check.py $(HOSTDIR)/host_ui ../ugfx/$(BUILDDIR)/host_ctx
 	python3 tests/host/compare_images.py $(HOSTDIR)/host_decode
+	python3 tests/host/encode_check.py $(HOSTDIR)/host_encode $(HOSTDIR)/host_decode
 	python3 tests/host/fuzz_media.py $(HOSTDIR)/host_decode
 	python3 tests/golden/make_golden.py --check
 
