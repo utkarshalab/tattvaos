@@ -249,7 +249,9 @@ For a born repository, the candidate HEAD must resolve to a commit record in
 the candidate's authenticated object-index generation. Every ownership child
 must resolve there with its declared object type, and every immutable-object
 owner key must also resolve there. Namespace owner keys such as refs and
-transactions are instead authenticated by their own catalogs.
+transactions are instead authenticated by their own catalogs. A nonzero
+operation head requires feature bit 3 and must resolve to a type-7 operation
+object in that same authenticated object-index generation.
 The staged-object list is strictly sorted by complete object ID with no
 duplicates. Each staged object's index record carries the transaction sequence
 being published, and every index record carrying that sequence has exactly one
