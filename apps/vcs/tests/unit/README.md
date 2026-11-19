@@ -36,6 +36,7 @@ bounds, exact current-transaction index/staging correspondence, staged
 transaction binding, abort, poison,
 authenticated envelope-locator binding, canonical ownership batches, complete
 physical-envelope and extent-chain validation, transaction-pin coverage,
+phantom current-transaction pin rejection, mandatory transaction identity,
 authenticated ownership-root binding and staged-edge membership, overflow-safe
 reservation totals, authenticated ref-root binding, callback order and preflight
 atomicity, direct commit-target closure, the required ref-key ownership edge and
