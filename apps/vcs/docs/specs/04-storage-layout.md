@@ -274,8 +274,10 @@ supplies locators in strict ascending order so uniqueness preflight stays linear
 The staged ownership batch is also in canonical catalog order with no duplicate
 edges. Every newly staged object has an exact transaction-pin edge whose owner
 key is the current transaction's canonical identity and whose child type matches
-the object. Publication proves complete pin coverage and staged-edge membership
-in the authenticated ownership root before opening storage.
+the object. That identity is mandatory even for a transaction with no new
+objects. Publication proves complete pin coverage, rejects authenticated
+current-transaction pins without staged objects, and proves staged-edge
+membership in the authenticated ownership root before opening storage.
 Every newly staged commit is locally validated as a canonical type-4 object.
 Its exact commit-to-root-tree and commit-to-parent edges must occur both in the
 current transaction's staged ownership batch and in the authenticated candidate
