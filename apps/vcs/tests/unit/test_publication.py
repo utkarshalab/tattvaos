@@ -99,6 +99,7 @@ commit_header[40:72] = tree_id
 commit_payload = bytes(commit_header) + commit_message
 commit_id = oid(4, commit_payload)
 alternate_commit_id = hashlib.sha256(b"indexed alternate commit").digest()
+operation_id = oid(7, b"operation log head")
 object_specs = [(1, b"first immutable payload"),
                 (2, bytes((index * 73) & 0xff for index in range(5000))),
                 (4, commit_payload)]
@@ -197,6 +198,7 @@ catalog = [(bytes(objects[index].object_id), 100 + index,
            for index in range(len(objects))]
 catalog.append((tree_id, 200, 96, 3))
 catalog.append((alternate_commit_id, 201, 256, 4))
+catalog.append((operation_id, 202, 18, 7))
 index_records = (IndexRecord * len(catalog))()
 for slot, (object_id, envelope, length, object_type) in enumerate(
         sorted(catalog, key=lambda value: value[0])):
@@ -296,6 +298,26 @@ assert publication.result_phase == COMMITTED
 assert state["events"] == (["begin"] + ["object"] * len(objects)
                            + ["edge"] * len(edges)
                            + ["root", "flush", "publish"])
+
+# A nonzero operation head is allowed only with its feature bit and a typed
+# object in the authenticated candidate index.
+for operation_head, expected in ((operation_id, OK), (b"\xff" * 32, CORRUPT),
+                                 (bytes(objects[file_index].object_id), CORRUPT)):
+    operation_candidate = bytearray(root_image)
+    struct.pack_into("<Q", operation_candidate, 16, 11)
+    operation_candidate[152:184] = operation_head
+    operation_candidate[480:512] = hashlib.sha256(
+        operation_candidate[:480]).digest()
+    operation_candidate_buffer = array(operation_candidate)
+    backend, state = backend_for()
+    publication = request(backend)
+    publication.root = operation_candidate_buffer
+    assert lib.vcs_publication_commit(ctypes.byref(publication)) == expected
+    if expected == OK:
+        assert publication.result_phase == COMMITTED
+        assert state["events"][-3:] == ["root", "flush", "publish"]
+    else:
+        assert publication.result_phase == 0xBAD and state["events"] == []
 
 # Newly staged commits must insert their canonical dependency edges in this
 # transaction, even when the complete candidate catalog already contains them.
@@ -743,4 +765,4 @@ publication.transaction_owner = None
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == USAGE
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (exact transaction objects and pins, extent chains, atomic failures)")
+print("VCS publication: PASS (typed roots, exact transaction objects and pins, atomic failures)")
