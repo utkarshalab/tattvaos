@@ -100,7 +100,9 @@ headers, object IDs, contiguous indexes, exact byte partitioning, zero padding,
 strictly increasing unique locators, final flags and next links. Ownership edges
 are canonical and unique, and an allocation-free sorted merge proves that every
 new object has a correctly typed pin owned by the current transaction. The
-complete kind-2 ownership root is verified against the candidate generation and
+canonical transaction identity is mandatory, and the authenticated ownership
+root may contain no additional pin owned by that transaction. The complete
+kind-2 ownership root is verified against the candidate generation and
 superblock, and every staged edge must belong to it. The complete kind-1 ref root
 is also verified against the same generation and superblock. Direct refs must
 resolve to indexed commits and own them through exact ref-key ownership edges,
