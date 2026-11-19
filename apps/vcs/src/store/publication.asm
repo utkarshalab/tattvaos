@@ -168,6 +168,31 @@ vcs_publication_commit:
  cmp dword [rax+vcs_object_index_record.object_type],VCS_OBJ_COMMIT
  jne .corrupt
 .head_valid:
+ ; A nonzero operation-log head is an immutable type-7 object in this same
+ ; authenticated index generation. The superblock verifier already requires
+ ; the operation-log feature bit when this field is present.
+ mov rax,[rbx+vcs_publication.root]
+ mov rdx,[rax+vcs_superblock.operation_head]
+ or rdx,[rax+vcs_superblock.operation_head+8]
+ or rdx,[rax+vcs_superblock.operation_head+16]
+ or rdx,[rax+vcs_superblock.operation_head+24]
+ jz .operation_head_valid
+ mov rcx,[rbx+vcs_publication.index_root]
+ mov rdx,[rcx+vcs_object_index_root.records]
+ mov [rsp+56+vcs_object_index_lookup.records],rdx
+ mov rdx,[rcx+vcs_object_index_root.record_count]
+ mov [rsp+56+vcs_object_index_lookup.record_count],rdx
+ lea rdx,[rax+vcs_superblock.operation_head]
+ mov [rsp+56+vcs_object_index_lookup.object_id],rdx
+ mov qword [rsp+56+vcs_object_index_lookup.result],0
+ lea rdi,[rsp+56]
+ call vcs_object_index_find
+ test eax,eax
+ jnz .corrupt
+ mov rax,[rsp+56+vcs_object_index_lookup.result]
+ cmp dword [rax+vcs_object_index_record.object_type],VCS_OBJ_OPERATION
+ jne .corrupt
+.operation_head_valid:
  mov rax,[rbx+vcs_publication.root]
  lea rdi,[rax+vcs_superblock.object_index_root]
  mov rax,[rbx+vcs_publication.index_root]
