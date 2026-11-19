@@ -87,7 +87,8 @@ transaction to an exact one-generation successor, rejecting replay, skipped
 generations, sequence rollback and repository substitution before `begin`.
 Nonzero HEAD must resolve to an indexed commit, ownership children must resolve
 with their declared type, and immutable owners must resolve in that same
-authenticated index generation.
+authenticated index generation. A nonzero operation head must likewise resolve
+to an indexed operation object after its superblock feature is validated.
 Newly staged objects form a strictly ID-sorted unique set and their index records
 must carry the current transaction sequence; older deduplicated objects retain
 their earlier creation sequence and are not restaged. Each new object's
