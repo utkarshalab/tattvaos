@@ -31,8 +31,9 @@ The standard `make test` target runs these with
 `test_publication.py`, which injects failure at every transaction phase and
 checks authenticated predecessor transitions and index membership, replay and
 rollback rejection, HEAD commit membership, ownership endpoint closure, root
-tampering, canonical unique staged sets, candidate-wide index transaction
-bounds, exact current-transaction index/staging correspondence, staged
+tampering, typed operation-head membership, canonical unique staged sets,
+candidate-wide index transaction bounds, exact current-transaction
+index/staging correspondence, staged
 transaction binding, abort, poison,
 authenticated envelope-locator binding, canonical ownership batches, complete
 physical-envelope and extent-chain validation, transaction-pin coverage,
