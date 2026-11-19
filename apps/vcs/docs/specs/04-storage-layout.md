@@ -251,7 +251,9 @@ must resolve there with its declared object type, and every immutable-object
 owner key must also resolve there. Namespace owner keys such as refs and
 transactions are instead authenticated by their own catalogs. A nonzero
 operation head requires feature bit 3 and must resolve to a type-7 operation
-object in that same authenticated object-index generation.
+object in that same authenticated object-index generation. Its last committed
+operation sequence must be nonzero. A zero head may retain a nonzero sequence
+after explicit log pruning so later operations never reuse a sequence.
 The staged-object list is strictly sorted by complete object ID with no
 duplicates. Each staged object's index record carries the transaction sequence
 being published, and every index record carrying that sequence has exactly one
