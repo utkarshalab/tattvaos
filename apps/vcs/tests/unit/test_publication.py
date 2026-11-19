@@ -611,6 +611,36 @@ root_image[184:216] = bytes(index_hash)
 root_image[480:512] = hashlib.sha256(root_image[:480]).digest()
 root[:] = root_image
 
+# The authenticated ownership root cannot contain a current-transaction pin for
+# an object absent from the staged set.
+phantom_values = edge_values + [(5, 4, bytes(transaction_owner),
+                                 alternate_commit_id)]
+phantom_values.sort(key=lambda value: (value[3], value[0], value[2]))
+phantom_edges = (Edge * len(phantom_values))()
+for edge, (owner_kind, child_type, owner_key, child_id) in zip(
+        phantom_edges, phantom_values):
+    edge.owner_kind = owner_kind
+    edge.child_type = child_type
+    edge.owner_key[:] = owner_key
+    edge.child_id[:] = child_id
+phantom_frame = b"UVCSROT1" + struct.pack("<HHIQQ", 1, 2, 0, 9,
+                                             ctypes.sizeof(phantom_edges))
+phantom_hash = array(hashlib.sha256(phantom_frame
+                                    + bytes(phantom_edges)).digest())
+phantom_root = OwnershipRoot(phantom_edges, len(phantom_edges), 9,
+                             phantom_hash)
+phantom_candidate = bytearray(root_image)
+phantom_candidate[120:152] = bytes(phantom_hash)
+phantom_candidate[480:512] = hashlib.sha256(
+    phantom_candidate[:480]).digest()
+phantom_candidate_buffer = array(phantom_candidate)
+backend, state = backend_for()
+publication = request(backend)
+publication.root = phantom_candidate_buffer
+publication.ownership_root = ctypes.pointer(phantom_root)
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
+assert publication.result_phase == 0xBAD and state["events"] == []
+
 for envelope in (0, 999):
     saved_envelope = objects[0].envelope
     objects[0].envelope = envelope
@@ -707,4 +737,10 @@ publication.transaction_owner = wrong_transaction_owner
 assert lib.vcs_publication_commit(ctypes.byref(publication)) == CORRUPT
 assert publication.result_phase == 0xBAD and state["events"] == []
 
-print("VCS publication: PASS (catalog transaction and ownership closure, extent chains, atomic failures)")
+backend, state = backend_for()
+publication = request(backend)
+publication.transaction_owner = None
+assert lib.vcs_publication_commit(ctypes.byref(publication)) == USAGE
+assert publication.result_phase == 0xBAD and state["events"] == []
+
+print("VCS publication: PASS (exact transaction objects and pins, extent chains, atomic failures)")
