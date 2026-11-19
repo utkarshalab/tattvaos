@@ -71,6 +71,12 @@ operation_buffer = (ctypes.c_ubyte * 512).from_buffer(with_operation)
 assert lib.vcs_superblock_seal(operation_buffer) == OK
 assert lib.vcs_superblock_verify(operation_buffer) == OK
 
+zero_sequence_operation = valid_image(0x0B, operation_sequence=0)
+zero_sequence_operation[152:184] = hashlib.sha256(b"operation head").digest()
+zero_sequence_buffer = (ctypes.c_ubyte * 512).from_buffer(
+    zero_sequence_operation)
+assert lib.vcs_superblock_seal(zero_sequence_buffer) == CORRUPT
+
 mutations = [
     (0, b"X"), (8, struct.pack("<I", 2)), (12, struct.pack("<I", 511)),
     (16, struct.pack("<Q", 1)), (16, struct.pack("<Q", 0x13)),
@@ -174,4 +180,4 @@ for incompatible in (
     else:
         assert seal_status == CORRUPT
 
-print("VCS superblock: PASS (layout, sealing, tamper rejection, redundant recovery selection)")
+print("VCS superblock: PASS (layout, operation coherence, tamper rejection, recovery selection)")
