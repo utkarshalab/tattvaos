@@ -251,8 +251,6 @@ vcs_publication_commit:
  add rax,[rbx+vcs_publication.edges]
  jc .space
 .edges_pointer_ok:
- test r12,r12
- jz .transaction_owner_valid
  mov rax,[rbx+vcs_publication.transaction_owner]
  test rax,rax
  jz .usage
@@ -262,6 +260,14 @@ vcs_publication_commit:
  or rdx,[rax+24]
  jz .corrupt
 .transaction_owner_valid:
+ mov rax,[rbx+vcs_publication.ownership_root]
+ mov rdi,[rax+vcs_ownership_root.records]
+ mov rsi,[rax+vcs_ownership_root.record_count]
+ mov rdx,[rbx+vcs_publication.transaction_owner]
+ mov rcx,r12
+ call validate_transaction_pins_publication
+ test eax,eax
+ jnz .done
  mov qword [rsp+32],0
 .validate_objects:
  mov r14,[rsp+32]
@@ -677,6 +683,45 @@ validate_index_transactions_publication:
  xor eax,eax
  ret
 .index_transactions_corrupt:
+ mov eax,VCS_ERR_CORRUPT
+ ret
+
+; RDI=validated ownership records, RSI=count, RDX=current transaction owner,
+; RCX=staged object count. The later pin merge proves every staged object has
+; one matching edge, so an equal authenticated count rejects phantom pins.
+validate_transaction_pins_publication:
+ xor r8d,r8d
+ xor r9d,r9d
+.transaction_pin_loop:
+ cmp r8,rsi
+ jae .transaction_pins_complete
+ mov rax,r8
+ imul rax,vcs_ownership_edge_size
+ add rax,rdi
+ cmp dword [rax+vcs_ownership_edge.owner_kind],VCS_OWNER_TRANSACTION
+ jne .transaction_pin_next
+ mov r10,[rax+vcs_ownership_edge.owner_key]
+ xor r10,[rdx]
+ mov r11,[rax+vcs_ownership_edge.owner_key+8]
+ xor r11,[rdx+8]
+ or r10,r11
+ mov r11,[rax+vcs_ownership_edge.owner_key+16]
+ xor r11,[rdx+16]
+ or r10,r11
+ mov r11,[rax+vcs_ownership_edge.owner_key+24]
+ xor r11,[rdx+24]
+ or r10,r11
+ jnz .transaction_pin_next
+ inc r9
+.transaction_pin_next:
+ inc r8
+ jmp .transaction_pin_loop
+.transaction_pins_complete:
+ cmp r9,rcx
+ jne .transaction_pins_corrupt
+ xor eax,eax
+ ret
+.transaction_pins_corrupt:
  mov eax,VCS_ERR_CORRUPT
  ret
 
