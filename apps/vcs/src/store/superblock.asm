@@ -247,6 +247,8 @@ superblock_validate_fields:
  jz .operation_ok
  test qword [rdi+vcs_superblock.features],8
  jz .fields_bad
+ cmp qword [rdi+vcs_superblock.operation_sequence],0
+ je .fields_bad
 .operation_ok:
  lea rsi,[rdi+vcs_superblock.reserved]
  mov ecx,208
