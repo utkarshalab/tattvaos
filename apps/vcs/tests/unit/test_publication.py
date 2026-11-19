@@ -305,6 +305,7 @@ for operation_head, expected in ((operation_id, OK), (b"\xff" * 32, CORRUPT),
                                  (bytes(objects[file_index].object_id), CORRUPT)):
     operation_candidate = bytearray(root_image)
     struct.pack_into("<Q", operation_candidate, 16, 11)
+    struct.pack_into("<Q", operation_candidate, 248, 1)
     operation_candidate[152:184] = operation_head
     operation_candidate[480:512] = hashlib.sha256(
         operation_candidate[:480]).digest()
